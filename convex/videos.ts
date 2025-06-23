@@ -7,16 +7,7 @@ import { Id } from "./_generated/dataModel";
 export const r2 = new R2(components.r2);
 
 // Configure R2 client API
-export const { generateUploadUrl, syncMetadata } = r2.clientApi({
-  checkUpload: async (_ctx, _bucket) => {
-    // Add any upload validation logic here if needed
-    // For now, we'll allow all uploads
-  },
-  onUpload: async (_ctx, key) => {
-    // This runs after successful upload to R2
-    console.log(`Successfully uploaded file with key: ${key}`);
-  },
-});
+export const { generateUploadUrl, syncMetadata } = r2.clientApi();
 
 // Extract YouTube video ID from various URL formats
 function extractVideoId(url: string): string | null {
@@ -32,71 +23,6 @@ function extractVideoId(url: string): string | null {
   }
   return null;
 }
-
-// Fetch video metadata from YouTube oEmbed API
-export const fetchVideoMetadata = action({
-  args: { url: v.string() },
-  handler: async (_ctx, { url }) => {
-    const videoId = extractVideoId(url);
-    if (!videoId) {
-      throw new Error("Invalid YouTube URL");
-    }
-
-    try {
-      // Use YouTube oEmbed API to get video metadata
-      const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-      const response = await fetch(oEmbedUrl);
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch video metadata");
-      }
-
-      const metadata = await response.json();
-
-      return {
-        videoId,
-        title: metadata.title,
-        thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-        cleanUrl: `https://youtu.be/${videoId}`,
-      };
-    } catch (error) {
-      throw new Error(`Failed to fetch video metadata: ${error}`);
-    }
-  },
-});
-
-// Generate thumbnail with play button overlay and store in R2
-export const generateThumbnailWithPlayButton = action({
-  args: {
-    videoId: v.string(),
-    thumbnailUrl: v.string(),
-  },
-  handler: async (ctx, { videoId, thumbnailUrl }) => {
-    try {
-      // Fetch the original thumbnail
-      const thumbnailResponse = await fetch(thumbnailUrl);
-      if (!thumbnailResponse.ok) {
-        throw new Error("Failed to fetch thumbnail image");
-      }
-
-      const thumbnailBuffer = await thumbnailResponse.arrayBuffer();
-
-      // For now, we'll store the original thumbnail
-      // In a future enhancement, we could add play button overlay using canvas API
-      const blob = new Blob([thumbnailBuffer], { type: "image/jpeg" });
-
-      // Store the thumbnail in R2
-      const key = await r2.store(ctx, blob, {
-        key: `thumbnails/${videoId}.jpg`,
-        type: "image/jpeg",
-      });
-
-      return key;
-    } catch (error) {
-      throw new Error(`Failed to generate thumbnail: ${error}`);
-    }
-  },
-});
 
 // Create a new video entry
 export const createVideo = mutation({
@@ -142,11 +68,7 @@ export const getVideos = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { limit = 10 }) => {
-    const videos = await ctx.db
-      .query("videos")
-      .withIndex("by_creation_time")
-      .order("desc")
-      .take(limit);
+    const videos = await ctx.db.query("videos").order("desc").take(limit);
 
     // Generate URLs for R2-stored thumbnails
     const videosWithUrls = await Promise.all(
@@ -230,14 +152,10 @@ export const processVideoUrl = action({
       );
     }
 
-    // Convert response to blob as per R2 documentation
     const blob = await thumbnailResponse.blob();
 
     // Store the thumbnail in R2
-    const thumbnailKey = await r2.store(ctx, blob, {
-      key: `thumbnails/${videoId}.jpg`,
-      type: "image/jpeg",
-    });
+    const thumbnailKey = await r2.store(ctx, blob, `thumbnails/${videoId}.jpg`);
 
     // Step 4: Create video entry in database
     const videoDocId = await ctx.runMutation(api.videos.createVideo, {
