@@ -4,7 +4,7 @@ A simple web application that converts YouTube videos into markdown-friendly for
 
 So that it looks somthing like this:
 
-[![What is Convex & Why Should Developers Care?](https://thumbs.video-to-markdown.com/e8ef1a94.jpg)](https://youtu.be/BPPThblvitQ)
+[![What is Convex & Why Should Developers Care?](https://thumbs.video-to-markdown.com/d0f34c88.jpg)](https://youtu.be/BPPThblvitQ)
 
 ## What it does
 
