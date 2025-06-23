@@ -1,18 +1,26 @@
 "use client";
 
-import { CSSProperties, ReactElement, useEffect, useState } from "react";
+import {
+  CSSProperties,
+  ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
 interface Sparkle {
   id: string;
-  x: string;
-  y: string;
+  x: number;
+  y: number;
   color: string;
   delay: number;
   scale: number;
   lifespan: number;
+  maxLifespan: number;
 }
 
 interface SparklesTextProps {
@@ -68,50 +76,92 @@ const SparklesText: React.FC<SparklesTextProps> = ({
   ...props
 }) => {
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const sparklesRef = useRef<Sparkle[]>([]);
+  const animationRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const generateStar = (): Sparkle => {
-      const starX = `${Math.random() * 100}%`;
-      const starY = `${Math.random() * 100}%`;
-      const color = Math.random() > 0.5 ? colors.first : colors.second;
-      const delay = Math.random() * 2;
-      const scale = Math.random() * 1 + 0.3;
-      const lifespan = Math.random() * 10 + 5;
-      const id = `${starX}-${starY}-${Date.now()}`;
-      return { id, x: starX, y: starY, color, delay, scale, lifespan };
+  // Memoized sparkle generation function
+  const generateSparkle = useCallback((): Sparkle => {
+    const x = Math.random() * 100;
+    const y = Math.random() * 100;
+    const color = Math.random() > 0.5 ? colors.first : colors.second;
+    const delay = Math.random() * 2;
+    const scale = Math.random() * 0.7 + 0.3;
+    const animationDuration = 1.2;
+    const cycles = Math.floor(Math.random() * 3) + 2; // 2-4 complete cycles
+    const maxLifespan = cycles * animationDuration; // Always complete full cycles
+    const id = `sparkle-${Date.now()}-${Math.random()}`;
+
+    return {
+      id,
+      x,
+      y,
+      color,
+      delay,
+      scale,
+      lifespan: maxLifespan,
+      maxLifespan,
     };
-
-    const initializeStars = () => {
-      const newSparkles = Array.from({ length: sparklesCount }, generateStar);
-      setSparkles(newSparkles);
-    };
-
-    const updateStars = () => {
-      setSparkles((currentSparkles) =>
-        currentSparkles.map((star) => {
-          if (star.lifespan <= 0) {
-            return generateStar();
-          } else {
-            return { ...star, lifespan: star.lifespan - 0.1 };
-          }
-        }),
-      );
-    };
-
-    initializeStars();
-    const interval = setInterval(updateStars, 100);
-
-    return () => clearInterval(interval);
   }, [colors.first, colors.second]);
+
+  // Initialize sparkles only once
+  useEffect(() => {
+    const initialSparkles = Array.from({ length: sparklesCount }, () =>
+      generateSparkle(),
+    );
+    sparklesRef.current = initialSparkles;
+    setSparkles(initialSparkles);
+  }, [sparklesCount, generateSparkle]);
+
+  // Animation loop using requestAnimationFrame - only re-renders when needed
+  useEffect(() => {
+    let lastTime = 0;
+
+    const animate = (currentTime: number) => {
+      if (!lastTime) lastTime = currentTime;
+      const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+
+      let needsUpdate = false;
+
+      // Update sparkles lifespan
+      sparklesRef.current = sparklesRef.current.map((sparkle) => {
+        const newLifespan = sparkle.lifespan - deltaTime;
+
+        if (newLifespan <= 0) {
+          needsUpdate = true;
+          return generateSparkle();
+        }
+
+        return { ...sparkle, lifespan: newLifespan };
+      });
+
+      // Only trigger re-render if sparkles need to be replaced
+      if (needsUpdate) {
+        setSparkles([...sparklesRef.current]);
+      }
+
+      lastTime = currentTime;
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [generateSparkle]);
 
   return (
     <div
+      ref={containerRef}
       className={cn("text-6xl font-bold", className)}
       {...props}
       style={
         {
-          "--sparkles-first-color": `${colors.first}`,
-          "--sparkles-second-color": `${colors.second}`,
+          "--sparkles-first-color": colors.first,
+          "--sparkles-second-color": colors.second,
         } as CSSProperties
       }
     >
@@ -130,13 +180,26 @@ const Sparkle: React.FC<Sparkle> = ({ id, x, y, color, delay, scale }) => {
     <motion.svg
       key={id}
       className="pointer-events-none absolute z-20"
-      initial={{ opacity: 0, left: x, top: y }}
+      style={{
+        left: `${x}%`,
+        top: `${y}%`,
+      }}
+      initial={{
+        opacity: 0,
+        scale: 0,
+        rotate: 75,
+      }}
       animate={{
         opacity: [0, 1, 0],
         scale: [0, scale, 0],
         rotate: [75, 120, 150],
       }}
-      transition={{ duration: 0.8, repeat: Infinity, delay }}
+      transition={{
+        duration: 1.2,
+        repeat: Infinity,
+        delay,
+        ease: "easeInOut",
+      }}
       width="21"
       height="21"
       viewBox="0 0 21 21"
