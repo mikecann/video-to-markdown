@@ -64,41 +64,12 @@ export default function VideoCard({ video }: VideoCardProps) {
 
   return (
     <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
-      <div className="aspect-video bg-gray-100 relative group">
-        <img
-          src={video.thumbnailUrl}
-          alt={video.title}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-          <PlayButton />
-        </div>
-      </div>
-
       <div className="p-4">
         <h3 className="font-medium text-white mb-2 line-clamp-2">
           {video.title}
         </h3>
 
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">
-              Markdown Code
-            </label>
-            <div className="relative">
-              <pre className="bg-gray-900 p-3 rounded text-xs font-mono text-gray-300 overflow-x-auto border border-gray-600">
-                <code>{video.markdownCode}</code>
-              </pre>
-              <button
-                onClick={copyToClipboard}
-                className="absolute top-2 right-2 p-1.5 bg-gray-700 border border-gray-600 rounded hover:bg-gray-600 transition-colors"
-                title="Copy to clipboard"
-              >
-                {copied ? <CheckIcon /> : <CopyIcon />}
-              </button>
-            </div>
-          </div>
-
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-1">
               Preview
@@ -116,6 +87,24 @@ export default function VideoCard({ video }: VideoCardProps) {
                   className="w-full rounded"
                 />
               </a>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-300 mb-1">
+              Markdown Code
+            </label>
+            <div className="relative">
+              <pre className="bg-gray-900 p-3 rounded text-xs font-mono text-gray-300 overflow-x-auto border border-gray-600">
+                <code>{video.markdownCode}</code>
+              </pre>
+              <button
+                onClick={copyToClipboard}
+                className="absolute top-2 right-2 p-1.5 bg-gray-700 border border-gray-600 rounded hover:bg-gray-600 transition-colors"
+                title="Copy to clipboard"
+              >
+                {copied ? <CheckIcon /> : <CopyIcon />}
+              </button>
             </div>
           </div>
         </div>

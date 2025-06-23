@@ -8,6 +8,7 @@ export default defineSchema({
     title: v.string(), // Video title from oEmbed
     thumbnailKey: v.optional(v.string()), // R2 object key for the generated thumbnail
     originalThumbnailUrl: v.string(), // Original YouTube thumbnail URL
+    processedThumbnailUrl: v.string(), // Processed thumbnail URL
     markdownCode: v.string(), // Generated markdown code
     createdAt: v.number(), // Timestamp
   }).index("by_videoId", ["videoId"]),

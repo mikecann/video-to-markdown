@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./videos";
+import { randomUUID } from "crypto";
 
 // Extract YouTube video ID from various URL formats
 function extractVideoId(url: string): string | null {
@@ -28,7 +29,7 @@ async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   const { width, height } = image.bitmap;
 
   // Calculate play icon dimensions and position
-  const iconSize = Math.min(width, height) * 0.12; // 12% of the smaller dimension
+  const iconSize = Math.min(width, height) * 0.3; // 12% of the smaller dimension
   const iconLeft = Math.floor((width - iconSize) / 2);
   const iconTop = Math.floor((height - iconSize) / 2);
 
@@ -44,31 +45,39 @@ async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   const centerX = Math.floor(iconSize / 2);
   const centerY = Math.floor(iconSize / 2);
 
-  // Draw semi-transparent black circle
+  // Draw red circle with white border (YouTube style)
   for (let x = 0; x < iconSize; x++) {
     for (let y = 0; y < iconSize; y++) {
       const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-      if (distance <= radius * 0.85) {
-        // Inner circle - semi-transparent black
-        playIcon.setPixelColor(0x000000bf, x, y); // Black with ~75% opacity
-      } else if (distance <= radius) {
-        // Border - white
-        playIcon.setPixelColor(0xffffffe6, x, y); // White with ~90% opacity
+      if (distance <= radius * 0.75) {
+        // Inner circle - red like YouTube
+        playIcon.setPixelColor(0xff0000e6, x, y); // Red with ~90% opacity
+      } else if (distance <= radius * 0.9) {
+        // White border around the red circle
+        playIcon.setPixelColor(0xffffffee, x, y); // White with ~93% opacity
       }
     }
   }
 
-  // Draw the play triangle
-  const triangleSize = iconSize * 0.3;
+  // Draw the play triangle pointing right
+  const triangleSize = iconSize * 0.4;
   const triangleLeft = centerX - triangleSize * 0.2;
   const triangleTop = centerY - triangleSize * 0.5;
 
-  // Simple triangle drawing using scanlines
+  // Draw right-pointing triangle
   for (let y = 0; y < triangleSize; y++) {
-    const progress = y / triangleSize;
-    const lineWidth = progress * triangleSize * 0.8;
+    // Calculate distance from center line
+    const distanceFromCenter = Math.abs(y - triangleSize / 2);
+    const maxDistanceFromCenter = triangleSize / 2;
+
+    // Calculate width at this y position (narrower towards the point)
+    const widthAtY =
+      ((maxDistanceFromCenter - distanceFromCenter) / maxDistanceFromCenter) *
+      triangleSize *
+      0.7;
+
     const startX = Math.floor(triangleLeft);
-    const endX = Math.floor(triangleLeft + lineWidth);
+    const endX = Math.floor(triangleLeft + widthAtY);
 
     for (let x = startX; x <= endX && x < iconSize; x++) {
       const triangleY = Math.floor(triangleTop + y);
@@ -126,9 +135,12 @@ export const processVideoUrl = action({
 
     // Store the processed thumbnail in R2
     const thumbnailKey = await r2.store(ctx, processedImageBuffer, {
-      key: `thumbnails/${videoId}-with-play-icon.jpg`,
+      key: `thumbnails/${videoId}-${randomUUID()}.jpg`,
       type: "image/jpeg",
     });
+
+    // Get the URL for the processed thumbnail
+    const processedThumbnailUrl = await r2.getUrl(thumbnailKey);
 
     // Step 4: Create video entry in database
     const videoDocId = await ctx.runMutation(api.videos.createVideo, {
@@ -137,6 +149,7 @@ export const processVideoUrl = action({
       title: metadata.title,
       thumbnailKey,
       originalThumbnailUrl: thumbnailUrl,
+      processedThumbnailUrl,
     });
 
     return videoDocId;

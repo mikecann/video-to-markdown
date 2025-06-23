@@ -9,7 +9,6 @@ export const r2 = new R2(components.r2);
 // Configure R2 client API
 export const { generateUploadUrl, syncMetadata } = r2.clientApi();
 
-
 // Create a new video entry
 export const createVideo = mutation({
   args: {
@@ -18,6 +17,7 @@ export const createVideo = mutation({
     title: v.string(),
     thumbnailKey: v.optional(v.string()),
     originalThumbnailUrl: v.string(),
+    processedThumbnailUrl: v.string(),
   },
   handler: async (ctx, args): Promise<Id<"videos">> => {
     // Check if video already exists
@@ -30,8 +30,10 @@ export const createVideo = mutation({
       return existingVideo._id;
     }
 
-    // Generate markdown code
-    const markdownCode = `[![${args.title}](${args.originalThumbnailUrl})](${args.url})`;
+    // Use processed thumbnail URL for markdown if available, otherwise fall back to original
+    const thumbnailUrlForMarkdown =
+      args.processedThumbnailUrl || args.originalThumbnailUrl;
+    const markdownCode = `[![${args.title}](${thumbnailUrlForMarkdown})](${args.url})`;
 
     // Create new video entry
     const videoId = await ctx.db.insert("videos", {
@@ -40,6 +42,7 @@ export const createVideo = mutation({
       title: args.title,
       thumbnailKey: args.thumbnailKey,
       originalThumbnailUrl: args.originalThumbnailUrl,
+      processedThumbnailUrl: args.processedThumbnailUrl,
       markdownCode,
       createdAt: Date.now(),
     });
@@ -106,4 +109,3 @@ export const getVideo = query({
     };
   },
 });
-
