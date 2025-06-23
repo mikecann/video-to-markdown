@@ -1,6 +1,7 @@
 import Header from "./components/Header";
 import VideoForm from "./components/VideoForm";
 import VideosList from "./components/VideosList";
+import { BeamsBackground } from "@/components/ui/beams-background";
 
 const HeroSection = () => (
   <div className="text-center">
@@ -23,16 +24,20 @@ const VideosSection = () => (
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-900">
-      <Header />
+    <div className="min-h-screen bg-gray-900 relative">
+      <BeamsBackground />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
-          <HeroSection />
-          <VideoForm />
-          <VideosSection />
-        </div>
-      </main>
+      <div className="relative z-10">
+        <Header />
+
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="space-y-8">
+            <HeroSection />
+            <VideoForm />
+            <VideosSection />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
