@@ -21,16 +21,6 @@ export const createVideo = mutation({
     initialThumbnailHash: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"videos">> => {
-    // Check if video already exists
-    const existingVideo = await ctx.db
-      .query("videos")
-      .withIndex("by_videoId", (q) => q.eq("videoId", args.videoId))
-      .first();
-
-    if (existingVideo) {
-      return existingVideo._id;
-    }
-
     // Create new video entry
     const videoId = await ctx.db.insert("videos", {
       url: args.url,
@@ -66,22 +56,7 @@ export const getVideo = query({
   args: { id: v.id("videos") },
   handler: async (ctx, { id }) => {
     const video = await ctx.db.get(id);
-    if (!video) return null;
-
-    let thumbnailUrl = video.originalThumbnailUrl;
-
-    if (video.thumbnailKey) {
-      try {
-        thumbnailUrl = await r2.getUrl(video.thumbnailKey);
-      } catch (error) {
-        console.error("Failed to get R2 URL, falling back to original:", error);
-      }
-    }
-
-    return {
-      ...video,
-      thumbnailUrl,
-    };
+    return video;
   },
 });
 

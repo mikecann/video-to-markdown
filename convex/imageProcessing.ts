@@ -141,13 +141,11 @@ export const processVideoUrl = action({
     const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
 
     // Store the processed thumbnail in R2
+    const shortId = randomUUID().substring(0, 8); // Generate 8-character random ID
     const thumbnailKey = await r2.store(ctx, processedImageBuffer, {
-      key: `thumbnails/${videoId}-${randomUUID()}.jpg`,
+      key: `${shortId}.jpg`,
       type: "image/jpeg",
     });
-
-    // Get the URL for the processed thumbnail
-    const processedThumbnailUrl = await r2.getUrl(thumbnailKey);
 
     // Step 4: Create video entry in database
     const videoDocId = await ctx.runMutation(api.videos.createVideo, {
@@ -156,7 +154,7 @@ export const processVideoUrl = action({
       title: metadata.title,
       thumbnailKey,
       originalThumbnailUrl: thumbnailUrl,
-      processedThumbnailUrl,
+      processedThumbnailUrl: `https://thumbs.video-to-markdown.com/${thumbnailKey}`,
       initialThumbnailHash: thumbnailHash,
     });
 
