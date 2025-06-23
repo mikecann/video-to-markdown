@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, internalQuery } from "./_generated/server";
 import { R2 } from "@convex-dev/r2";
 import { components, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -18,6 +18,7 @@ export const createVideo = mutation({
     thumbnailKey: v.optional(v.string()),
     originalThumbnailUrl: v.string(),
     processedThumbnailUrl: v.string(),
+    initialThumbnailHash: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"videos">> => {
     // Check if video already exists
@@ -45,6 +46,10 @@ export const createVideo = mutation({
       processedThumbnailUrl: args.processedThumbnailUrl,
       markdownCode,
       createdAt: Date.now(),
+      // Initialize thumbnail monitoring fields
+      lastThumbnailHash: args.initialThumbnailHash,
+      checkIntervalDays: 1, // Start with 1 day
+      lastCheckedAt: Date.now(),
     });
 
     return videoId;
@@ -107,5 +112,18 @@ export const getVideo = query({
       ...video,
       thumbnailUrl,
     };
+  },
+});
+
+// Update video with scheduled function ID
+export const updateScheduledFunction = mutation({
+  args: {
+    videoId: v.id("videos"),
+    scheduledFunctionId: v.id("_scheduled_functions"),
+  },
+  handler: async (ctx, { videoId, scheduledFunctionId }) => {
+    await ctx.db.patch(videoId, {
+      scheduledFunctionId,
+    });
   },
 });

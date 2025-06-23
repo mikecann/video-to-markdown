@@ -1,5 +1,38 @@
 import { useState } from "react";
 import { Video } from "../types/Video";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+
+// Helper function to calculate next check time
+function getNextCheckTime(video: Video): string {
+  if (!video.lastCheckedAt || !video.checkIntervalDays) {
+    return "Unknown";
+  }
+
+  const nextCheckTime =
+    video.lastCheckedAt + video.checkIntervalDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  if (nextCheckTime < now) {
+    return "Due now";
+  }
+
+  const diffMs = nextCheckTime - now;
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 0) {
+    return `${diffDays}d`;
+  } else if (diffHours > 0) {
+    return `${diffHours}h`;
+  } else {
+    return "<1h";
+  }
+}
 
 interface VideoCardProps {
   video: Video;
@@ -17,18 +50,6 @@ export default function VideoCard({ video }: VideoCardProps) {
       })
       .catch((err) => console.error("Failed to copy:", err));
   };
-
-  const PlayButton = () => (
-    <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
-      <svg
-        className="w-6 h-6 text-white ml-1"
-        fill="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path d="M8 5v14l11-7z" />
-      </svg>
-    </div>
-  );
 
   const CopyIcon = () => (
     <svg
@@ -62,8 +83,41 @@ export default function VideoCard({ video }: VideoCardProps) {
     </svg>
   );
 
+  const nextCheckTime = getNextCheckTime(video);
+  const isDueSoon = nextCheckTime === "Due now" || nextCheckTime === "<1h";
+
   return (
-    <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
+    <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden relative">
+      {/* Next check indicator - floating overlay */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={`absolute top-2 right-3 z-20 px-2 py-1 rounded-sm text-xs font-medium cursor-pointer shadow-lg ${
+                isDueSoon ? "text-orange-300" : "text-blue-300"
+              }`}
+            >
+              🔄 {nextCheckTime}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <div className="text-center">
+              <div className="font-medium">Thumbnail Monitor</div>
+              <div className="text-sm opacity-90">
+                Next check in {nextCheckTime}
+              </div>
+              {nextCheckTime !== "Unknown" && (
+                <div className="text-xs opacity-75 mt-1">
+                  Automatically checks if YouTube thumbnail changed and updates.
+                  <br />
+                  Interval increases (1d→2d→4d→8d→16d) when unchanged.
+                </div>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
       <div className="p-4">
         <div className="space-y-3">
           <div>

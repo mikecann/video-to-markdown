@@ -1,12 +1,12 @@
 "use node";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Jimp } from "jimp";
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./videos";
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 
 // Extract YouTube video ID from various URL formats
 function extractVideoId(url: string): string | null {
@@ -29,7 +29,7 @@ async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   const { width, height } = image.bitmap;
 
   // Calculate play icon dimensions and position
-  const iconSize = Math.min(width, height) * 0.4; // 12% of the smaller dimension
+  const iconSize = Math.min(width, height) * 0.3; // 12% of the smaller dimension
   const iconLeft = Math.floor((width - iconSize) / 2);
   const iconTop = Math.floor((height - iconSize) / 2);
 
@@ -46,7 +46,7 @@ async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   const centerY = Math.floor(iconSize / 2);
 
   // Draw red circle with 3-pixel white border (YouTube style)
-  const borderWidth = 3;
+  const borderWidth = 10;
   for (let x = 0; x < iconSize; x++) {
     for (let y = 0; y < iconSize; y++) {
       const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
@@ -132,6 +132,12 @@ export const processVideoUrl = action({
     }
 
     const arrayBuffer = await thumbnailResponse.arrayBuffer();
+
+    // Create hash of original thumbnail for monitoring
+    const thumbnailHash = createHash("sha256")
+      .update(new Uint8Array(arrayBuffer))
+      .digest("hex");
+
     const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
 
     // Store the processed thumbnail in R2
@@ -151,8 +157,99 @@ export const processVideoUrl = action({
       thumbnailKey,
       originalThumbnailUrl: thumbnailUrl,
       processedThumbnailUrl,
+      initialThumbnailHash: thumbnailHash,
+    });
+
+    // Step 5: Schedule initial thumbnail check for tomorrow
+    const scheduledTime = Date.now() + 24 * 60 * 60 * 1000; // 24 hours from now
+    const scheduledFunctionId = await ctx.scheduler.runAt(
+      scheduledTime,
+      internal.thumbnailMonitor.checkThumbnailChanges,
+      { videoId: videoDocId },
+    );
+
+    // Update video with scheduled function ID
+    await ctx.runMutation(api.videos.updateScheduledFunction, {
+      videoId: videoDocId,
+      scheduledFunctionId,
     });
 
     return videoDocId;
+  },
+});
+
+// Check if thumbnail has changed by comparing hashes
+export const checkThumbnailChanged = internalAction({
+  args: {
+    originalThumbnailUrl: v.string(),
+    lastThumbnailHash: v.string(),
+  },
+  handler: async (ctx, { originalThumbnailUrl, lastThumbnailHash }) => {
+    try {
+      // Download current thumbnail from YouTube
+      const thumbnailResponse = await fetch(originalThumbnailUrl);
+      if (!thumbnailResponse.ok) {
+        return {
+          error: `Failed to fetch thumbnail: ${thumbnailResponse.status}`,
+          thumbnailChanged: false,
+          newHash: "",
+        };
+      }
+
+      const arrayBuffer = await thumbnailResponse.arrayBuffer();
+
+      // Create hash of current thumbnail
+      const currentHash = createHash("sha256")
+        .update(new Uint8Array(arrayBuffer))
+        .digest("hex");
+
+      // Compare with stored hash
+      const thumbnailChanged = lastThumbnailHash !== currentHash;
+
+      return {
+        error: null,
+        thumbnailChanged,
+        newHash: currentHash,
+      };
+    } catch (error) {
+      return {
+        error: `Error checking thumbnail: ${error}`,
+        thumbnailChanged: false,
+        newHash: "",
+      };
+    }
+  },
+});
+
+// Update processed thumbnail in R2 storage
+export const updateProcessedThumbnail = internalAction({
+  args: {
+    originalThumbnailUrl: v.string(),
+    thumbnailKey: v.string(),
+  },
+  handler: async (ctx, { originalThumbnailUrl, thumbnailKey }) => {
+    try {
+      // Download the original thumbnail
+      const thumbnailResponse = await fetch(originalThumbnailUrl);
+      if (!thumbnailResponse.ok) {
+        throw new Error(
+          `Failed to fetch thumbnail: ${thumbnailResponse.status}`,
+        );
+      }
+
+      const arrayBuffer = await thumbnailResponse.arrayBuffer();
+      const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
+
+      // Update the same R2 key to keep URL consistent
+      await r2.store(ctx, processedImageBuffer, {
+        key: thumbnailKey,
+        type: "image/jpeg",
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating processed thumbnail:", error);
+      return { success: false, error: String(error) };
+    }
   },
 });

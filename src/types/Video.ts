@@ -5,4 +5,8 @@ export interface Video {
   thumbnailUrl: string;
   markdownCode: string;
   createdAt: number;
+  // Thumbnail monitoring fields
+  checkIntervalDays?: number;
+  lastCheckedAt?: number;
+  scheduledFunctionId?: string;
 }
