@@ -1,102 +1,197 @@
-"use client";
-
-import { useMutation, useQuery } from "convex/react";
+import { useState, FormEvent } from "react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
-export default function App() {
+interface Video {
+  _id: string;
+  title: string;
+  url: string;
+  thumbnailUrl: string;
+  markdownCode: string;
+  createdAt: number;
+}
+
+function VideoForm() {
+  const [url, setUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const processVideo = useAction((api as any).videos?.processVideoUrl);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!url.trim()) return;
+
+    setIsLoading(true);
+    setError("");
+
+    processVideo({ url: url.trim() })
+      .then(() => {
+        setUrl("");
+      })
+      .catch((err) => {
+        setError(
+          err instanceof Error ? err.message : "Failed to process video",
+        );
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
   return (
-    <>
-      <header className="sticky top-0 z-10 bg-light dark:bg-dark p-4 border-b-2 border-slate-200 dark:border-slate-800">
-        Convex + React
-      </header>
-      <main className="p-8 flex flex-col gap-16">
-        <h1 className="text-4xl font-bold text-center">Convex + React</h1>
-        <Content />
-      </main>
-    </>
+    <div className="w-full max-w-2xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label
+            htmlFor="url"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            YouTube URL
+          </label>
+          <input
+            type="url"
+            id="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://youtu.be/G0kHv7qqqO1"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-colors"
+            disabled={isLoading}
+            required
+          />
+        </div>
+
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading || !url.trim()}
+          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Processing...
+            </>
+          ) : (
+            "Generate Markdown"
+          )}
+        </button>
+      </form>
+    </div>
   );
 }
 
-function Content() {
-  const { viewer, numbers } =
-    useQuery(api.myFunctions.listNumbers, {
-      count: 10,
-    }) ?? {};
-  const addNumber = useMutation(api.myFunctions.addNumber);
+function VideoCard({ video }: { video: Video }) {
+  const [copied, setCopied] = useState(false);
 
-  if (viewer === undefined || numbers === undefined) {
-    return (
-      <div className="mx-auto">
-        <p>loading... (consider a loading skeleton)</p>
-      </div>
-    );
-  }
+  const copyToClipboard = () => {
+    navigator.clipboard
+      .writeText(video.markdownCode)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error("Failed to copy:", err);
+      });
+  };
 
   return (
-    <div className="flex flex-col gap-8 max-w-lg mx-auto">
-      <p>Welcome {viewer ?? "Anonymous"}!</p>
-      <p>
-        Click the button below and open this page in another window - this data
-        is persisted in the Convex cloud database!
-      </p>
-      <p>
-        <button
-          className="bg-dark dark:bg-light text-light dark:text-dark text-sm px-4 py-2 rounded-md border-2"
-          onClick={() => {
-            void addNumber({ value: Math.floor(Math.random() * 10) });
-          }}
-        >
-          Add a random number
-        </button>
-      </p>
-      <p>
-        Numbers:{" "}
-        {numbers?.length === 0
-          ? "Click the button!"
-          : (numbers?.join(", ") ?? "...")}
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          convex/myFunctions.ts
-        </code>{" "}
-        to change your backend
-      </p>
-      <p>
-        Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
-          src/App.tsx
-        </code>{" "}
-        to change your frontend
-      </p>
-      <div className="flex flex-col">
-        <p className="text-lg font-bold">Useful resources:</p>
-        <div className="flex gap-2">
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Convex docs"
-              description="Read comprehensive documentation for all Convex features."
-              href="https://docs.convex.dev/home"
-            />
-            <ResourceCard
-              title="Stack articles"
-              description="Learn about best practices, use cases, and more from a growing
-            collection of articles, videos, and walkthroughs."
-              href="https://www.typescriptlang.org/docs/handbook/2/basic-types.html"
-            />
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="aspect-video bg-gray-100 relative group">
+        <img
+          src={video.thumbnailUrl}
+          alt={video.title}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+          <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
+            <svg
+              className="w-6 h-6 text-white ml-1"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M8 5v14l11-7z" />
+            </svg>
           </div>
-          <div className="flex flex-col gap-2 w-1/2">
-            <ResourceCard
-              title="Templates"
-              description="Browse our collection of templates to get started quickly."
-              href="https://www.convex.dev/templates"
-            />
-            <ResourceCard
-              title="Discord"
-              description="Join our developer community to ask questions, trade tips & tricks,
-            and show off your projects."
-              href="https://www.convex.dev/community"
-            />
+        </div>
+      </div>
+
+      <div className="p-4">
+        <h3 className="font-medium text-gray-900 mb-2 line-clamp-2">
+          {video.title}
+        </h3>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Markdown Code
+            </label>
+            <div className="relative">
+              <pre className="bg-gray-50 p-3 rounded text-xs font-mono text-gray-700 overflow-x-auto border">
+                <code>{video.markdownCode}</code>
+              </pre>
+              <button
+                onClick={copyToClipboard}
+                className="absolute top-2 right-2 p-1.5 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                title="Copy to clipboard"
+              >
+                {copied ? (
+                  <svg
+                    className="w-4 h-4 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-4 h-4 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Preview
+            </label>
+            <div className="border border-gray-200 rounded p-3 bg-gray-50">
+              <a
+                href={video.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block hover:opacity-80 transition-opacity"
+              >
+                <img
+                  src={video.thumbnailUrl}
+                  alt={video.title}
+                  className="w-full rounded"
+                />
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -104,21 +199,106 @@ function Content() {
   );
 }
 
-function ResourceCard({
-  title,
-  description,
-  href,
-}: {
-  title: string;
-  description: string;
-  href: string;
-}) {
+function VideosList() {
+  const videos = useQuery((api as any).videos?.getVideos, { limit: 20 });
+
+  if (videos === undefined) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="animate-pulse">
+            <div className="bg-gray-200 aspect-video rounded-lg mb-4"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (videos.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+          <svg
+            className="w-8 h-8 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No videos yet
+        </h3>
+        <p className="text-gray-500">Add a YouTube URL above to get started!</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-2 bg-slate-200 dark:bg-slate-800 p-4 rounded-md h-28 overflow-auto">
-      <a href={href} className="text-sm underline hover:no-underline">
-        {title}
-      </a>
-      <p className="text-xs">{description}</p>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {videos.map((video: Video) => (
+        <VideoCard key={video._id} video={video} />
+      ))}
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center">
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Video to Markdown
+              </h1>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Convert YouTube Videos to Markdown
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Simply paste a YouTube URL and get beautiful markdown code with
+              thumbnails, perfect for documentation, READMEs, and blog posts.
+            </p>
+          </div>
+
+          <VideoForm />
+
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">
+              Generated Videos
+            </h3>
+            <VideosList />
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

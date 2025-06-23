@@ -1,40 +1,54 @@
-# Welcome to your Convex + React (Vite) app
+# Video to Markdown Generator
 
-This is a [Convex](https://convex.dev/) project created with [`npm create convex`](https://www.npmjs.com/package/create-convex).
+A simple web application that converts YouTube videos into markdown-friendly format with thumbnails and play buttons.
 
-After the initial setup (<2 minutes) you'll have a working full-stack app using:
+## What it does
 
-- Convex as your backend (database, server logic)
-- [React](https://react.dev/) as your frontend (web page interactivity)
-- [Vite](https://vitest.dev/) for optimized web hosting
-- [Tailwind](https://tailwindcss.com/) for building great looking accessible UI
+This tool allows you to:
+1. **Input a YouTube URL** - Simply paste any YouTube video URL
+2. **Generate a thumbnail with play button** - Automatically fetches the video thumbnail and overlays a play button icon
+3. **Get markdown code** - Provides ready-to-use markdown code that displays the thumbnail image and links to the video
 
-## Get started
+Perfect for documentation, README files, blog posts, or anywhere you want to embed YouTube videos in markdown format while showing an attractive thumbnail preview.
 
-If you just cloned this codebase and didn't use `npm create convex`, run:
+## Features
 
-```
+- ✅ **No API keys required** - Uses YouTube's oEmbed endpoint to fetch video metadata
+- ✅ **Automatic title detection** - Extracts video title directly from the URL
+- ✅ **Responsive design** - Built with Mantine UI components
+- ✅ **Copy-paste ready** - Generated markdown is ready to use anywhere
+- ✅ **Real-time preview** - See exactly how your markdown will look
+
+## Tech Stack
+
+- **Frontend**: React + Vite + TailwindCSS
+- **Backend**: Convex (database, server logic)
+- **Storage**: Cloudflare R2 (thumbnail storage)
+- **Deployment**: Ready for production deployment
+
+## Get Started
+
+```bash
 npm install
 npm run dev
 ```
 
-If you're reading this README on GitHub and want to use this template, run:
-
+Then start the Convex development server in a separate terminal:
+```bash
+npx convex dev
 ```
-npm create convex@latest -- -t react-vite
+
+## Example Usage
+
+Input: `https://youtu.be/G0kHv7qqqO1`
+
+Output:
+```markdown
+[![The Ultimate Convex Beginner Tutorial](https://img.youtube.com/vi/G0kHv7qqqO1/maxresdefault.jpg)](https://youtu.be/G0kHv7qqqO1)
 ```
 
-## Learn more
+Result: A clickable thumbnail that opens the YouTube video when clicked.
 
-To learn more about developing your project with Convex, check out:
+## Learn More
 
-- The [Tour of Convex](https://docs.convex.dev/get-started) for a thorough introduction to Convex principles.
-- The rest of [Convex docs](https://docs.convex.dev/) to learn about all Convex features.
-- [Stack](https://stack.convex.dev/) for in-depth articles on advanced topics.
-
-## Join the community
-
-Join thousands of developers building full-stack apps with Convex:
-
-- Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
-- Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
+Built with [Convex](https://convex.dev/) - the full-stack TypeScript platform that makes building apps delightfully simple.
