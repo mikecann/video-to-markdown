@@ -45,7 +45,7 @@ function VideoForm() {
         <div>
           <label
             htmlFor="url"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-white mb-2"
           >
             YouTube URL
           </label>
@@ -55,15 +55,15 @@ function VideoForm() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://youtu.be/G0kHv7qqqO1"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-colors"
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-colors"
             disabled={isLoading}
             required
           />
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">{error}</p>
+          <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg">
+            <p className="text-red-300 text-sm">{error}</p>
           </div>
         )}
 
@@ -102,7 +102,7 @@ function VideoCard({ video }: { video: Video }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
       <div className="aspect-video bg-gray-100 relative group">
         <img
           src={video.thumbnailUrl}
@@ -123,22 +123,22 @@ function VideoCard({ video }: { video: Video }) {
       </div>
 
       <div className="p-4">
-        <h3 className="font-medium text-gray-900 mb-2 line-clamp-2">
+        <h3 className="font-medium text-white mb-2 line-clamp-2">
           {video.title}
         </h3>
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-xs font-medium text-gray-300 mb-1">
               Markdown Code
             </label>
             <div className="relative">
-              <pre className="bg-gray-50 p-3 rounded text-xs font-mono text-gray-700 overflow-x-auto border">
+              <pre className="bg-gray-900 p-3 rounded text-xs font-mono text-gray-300 overflow-x-auto border border-gray-600">
                 <code>{video.markdownCode}</code>
               </pre>
               <button
                 onClick={copyToClipboard}
-                className="absolute top-2 right-2 p-1.5 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                className="absolute top-2 right-2 p-1.5 bg-gray-700 border border-gray-600 rounded hover:bg-gray-600 transition-colors"
                 title="Copy to clipboard"
               >
                 {copied ? (
@@ -175,10 +175,10 @@ function VideoCard({ video }: { video: Video }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-xs font-medium text-gray-300 mb-1">
               Preview
             </label>
-            <div className="border border-gray-200 rounded p-3 bg-gray-50">
+            <div className="border border-gray-600 rounded p-3 bg-gray-900">
               <a
                 href={video.url}
                 target="_blank"
@@ -207,10 +207,10 @@ function VideosList() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[...Array(6)].map((_, i) => (
           <div key={i} className="animate-pulse">
-            <div className="bg-gray-200 aspect-video rounded-lg mb-4"></div>
+            <div className="bg-gray-700 aspect-video rounded-lg mb-4"></div>
             <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-700 rounded w-1/2"></div>
             </div>
           </div>
         ))}
@@ -221,7 +221,7 @@ function VideosList() {
   if (videos.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+        <div className="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
           <svg
             className="w-8 h-8 text-gray-400"
             fill="none"
@@ -236,10 +236,8 @@ function VideosList() {
             />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          No videos yet
-        </h3>
-        <p className="text-gray-500">Add a YouTube URL above to get started!</p>
+        <h3 className="text-lg font-medium text-white mb-2">No videos yet</h3>
+        <p className="text-gray-400">Add a YouTube URL above to get started!</p>
       </div>
     );
   }
@@ -255,8 +253,8 @@ function VideosList() {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div className="min-h-screen bg-gray-900">
+      <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -269,7 +267,7 @@ export default function App() {
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-white">
                 Video to Markdown
               </h1>
             </div>
@@ -280,10 +278,10 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl font-bold text-white mb-4">
               Convert YouTube Videos to Markdown
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-300 max-w-2xl mx-auto">
               Simply paste a YouTube URL and get beautiful markdown code with
               thumbnails, perfect for documentation, READMEs, and blog posts.
             </p>
@@ -292,7 +290,7 @@ export default function App() {
           <VideoForm />
 
           <div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">
+            <h3 className="text-xl font-semibold text-white mb-6">
               Generated Videos
             </h3>
             <VideosList />
