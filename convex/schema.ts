@@ -9,7 +9,6 @@ export default defineSchema({
     thumbnailKey: v.optional(v.string()), // R2 object key for the generated thumbnail
     originalThumbnailUrl: v.string(), // Original YouTube thumbnail URL
     processedThumbnailUrl: v.string(), // Processed thumbnail URL
-    markdownCode: v.string(), // Generated markdown code
     createdAt: v.number(), // Timestamp
     // Thumbnail monitoring fields
     scheduledFunctionId: v.optional(v.id("_scheduled_functions")), // ID of scheduled thumbnail check

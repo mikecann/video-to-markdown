@@ -41,9 +41,12 @@ interface VideoCardProps {
 export default function VideoCard({ video }: VideoCardProps) {
   const [copied, setCopied] = useState(false);
 
+  // Dynamically generate markdown code using the processed thumbnail URL
+  const markdownCode = `[![${video.title}](${video.thumbnailUrl})](${video.url})`;
+
   const copyToClipboard = () => {
     navigator.clipboard
-      .writeText(video.markdownCode)
+      .writeText(markdownCode)
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -146,7 +149,7 @@ export default function VideoCard({ video }: VideoCardProps) {
             </label>
             <div className="relative">
               <pre className="bg-gray-900 p-3 rounded text-xs font-mono text-gray-300 overflow-x-auto border border-gray-600">
-                <code>{video.markdownCode}</code>
+                <code>{markdownCode}</code>
               </pre>
               <button
                 onClick={copyToClipboard}

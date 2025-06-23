@@ -3,7 +3,6 @@ export interface Video {
   title: string;
   url: string;
   thumbnailUrl: string;
-  markdownCode: string;
   createdAt: number;
   // Thumbnail monitoring fields
   checkIntervalDays?: number;

@@ -31,11 +31,6 @@ export const createVideo = mutation({
       return existingVideo._id;
     }
 
-    // Use processed thumbnail URL for markdown if available, otherwise fall back to original
-    const thumbnailUrlForMarkdown =
-      args.processedThumbnailUrl || args.originalThumbnailUrl;
-    const markdownCode = `[![${args.title}](${thumbnailUrlForMarkdown})](${args.url})`;
-
     // Create new video entry
     const videoId = await ctx.db.insert("videos", {
       url: args.url,
@@ -44,7 +39,6 @@ export const createVideo = mutation({
       thumbnailKey: args.thumbnailKey,
       originalThumbnailUrl: args.originalThumbnailUrl,
       processedThumbnailUrl: args.processedThumbnailUrl,
-      markdownCode,
       createdAt: Date.now(),
       // Initialize thumbnail monitoring fields
       lastThumbnailHash: args.initialThumbnailHash,
