@@ -152,10 +152,13 @@ export const processVideoUrl = action({
       );
     }
 
-    const blob = await thumbnailResponse.blob();
+    const arrayBuffer = await thumbnailResponse.arrayBuffer();
 
     // Store the thumbnail in R2
-    const thumbnailKey = await r2.store(ctx, blob, `thumbnails/${videoId}.jpg`);
+    const thumbnailKey = await r2.store(ctx, new Uint8Array(arrayBuffer), {
+      key: `thumbnails/${videoId}.jpg`,
+      type: "image/jpeg",
+    });
 
     // Step 4: Create video entry in database
     const videoDocId = await ctx.runMutation(api.videos.createVideo, {
