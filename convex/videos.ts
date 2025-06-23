@@ -55,33 +55,9 @@ export const getVideos = query({
   args: {
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { limit = 10 }) => {
+  handler: async (ctx, { limit = 20 }) => {
     const videos = await ctx.db.query("videos").order("desc").take(limit);
-
-    // Generate URLs for R2-stored thumbnails
-    const videosWithUrls = await Promise.all(
-      videos.map(async (video) => {
-        let thumbnailUrl = video.originalThumbnailUrl;
-
-        if (video.thumbnailKey) {
-          try {
-            thumbnailUrl = await r2.getUrl(video.thumbnailKey);
-          } catch (error) {
-            console.error(
-              "Failed to get R2 URL, falling back to original:",
-              error,
-            );
-          }
-        }
-
-        return {
-          ...video,
-          thumbnailUrl,
-        };
-      }),
-    );
-
-    return videosWithUrls;
+    return videos;
   },
 });
 

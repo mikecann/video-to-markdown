@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Video } from "../types/Video";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
+import { Doc } from "../../convex/_generated/dataModel";
 
 // Helper function to calculate next check time
-function getNextCheckTime(video: Video): string {
+function getNextCheckTime(video: Doc<"videos">): string {
   if (!video.lastCheckedAt || !video.checkIntervalDays) {
     return "Unknown";
   }
@@ -35,14 +35,14 @@ function getNextCheckTime(video: Video): string {
 }
 
 interface VideoCardProps {
-  video: Video;
+  video: Doc<"videos">;
 }
 
 export default function VideoCard({ video }: VideoCardProps) {
   const [copied, setCopied] = useState(false);
 
   // Dynamically generate markdown code using the processed thumbnail URL
-  const markdownCode = `[![${video.title}](${video.thumbnailUrl})](${video.url})`;
+  const markdownCode = `[![${video.title}](${video.processedThumbnailUrl})](${video.url})`;
 
   const copyToClipboard = () => {
     navigator.clipboard
@@ -135,7 +135,7 @@ export default function VideoCard({ video }: VideoCardProps) {
                 className="block hover:opacity-80 transition-opacity"
               >
                 <img
-                  src={video.thumbnailUrl}
+                  src={video.processedThumbnailUrl}
                   alt={video.title}
                   className="w-full rounded"
                 />

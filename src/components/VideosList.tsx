@@ -1,6 +1,5 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Video } from "../types/Video";
 import VideoCard from "./VideoCard";
 
 const LoadingSkeleton = () => (
@@ -48,7 +47,7 @@ export default function VideosList() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {videos.map((video: Video) => (
+      {videos.map((video) => (
         <VideoCard key={video._id} video={video} />
       ))}
     </div>
