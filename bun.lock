@@ -8,6 +8,7 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "convex": "^1.24.8",
+        "framer-motion": "^12.18.1",
         "lucide-react": "^0.522.0",
         "motion": "^12.18.1",
         "react": "^19.0.0",
