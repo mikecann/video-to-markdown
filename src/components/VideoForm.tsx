@@ -7,27 +7,31 @@ export default function VideoForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const processVideo = useAction((api as any).videos?.processVideoUrl);
+  // Type-safe access to the API - will work once convex generates types
+  const processVideo = useAction(
+    api?.videos?.processVideoUrl || (() => Promise.resolve()),
+  );
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+
     if (!url.trim()) return;
+    if (!api?.videos?.processVideoUrl) {
+      setError("API not ready. Please wait for Convex to initialize.");
+      return;
+    }
 
     setIsLoading(true);
     setError("");
 
     processVideo({ url: url.trim() })
-      .then(() => {
-        setUrl("");
-      })
+      .then(() => setUrl(""))
       .catch((err) => {
-        setError(
-          err instanceof Error ? err.message : "Failed to process video",
-        );
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to process video";
+        setError(errorMessage);
       })
-      .finally(() => {
-        setIsLoading(false);
-      });
+      .finally(() => setIsLoading(false));
   };
 
   return (

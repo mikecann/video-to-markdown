@@ -15,10 +15,52 @@ export default function VideoCard({ video }: VideoCardProps) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       })
-      .catch((err) => {
-        console.error("Failed to copy:", err);
-      });
+      .catch((err) => console.error("Failed to copy:", err));
   };
+
+  const PlayButton = () => (
+    <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
+      <svg
+        className="w-6 h-6 text-white ml-1"
+        fill="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    </div>
+  );
+
+  const CopyIcon = () => (
+    <svg
+      className="w-4 h-4 text-gray-500"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+      />
+    </svg>
+  );
+
+  const CheckIcon = () => (
+    <svg
+      className="w-4 h-4 text-green-600"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M5 13l4 4L19 7"
+      />
+    </svg>
+  );
 
   return (
     <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
@@ -29,15 +71,7 @@ export default function VideoCard({ video }: VideoCardProps) {
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-          <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
-            <svg
-              className="w-6 h-6 text-white ml-1"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
+          <PlayButton />
         </div>
       </div>
 
@@ -60,35 +94,7 @@ export default function VideoCard({ video }: VideoCardProps) {
                 className="absolute top-2 right-2 p-1.5 bg-gray-700 border border-gray-600 rounded hover:bg-gray-600 transition-colors"
                 title="Copy to clipboard"
               >
-                {copied ? (
-                  <svg
-                    className="w-4 h-4 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-4 h-4 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                )}
+                {copied ? <CheckIcon /> : <CopyIcon />}
               </button>
             </div>
           </div>
