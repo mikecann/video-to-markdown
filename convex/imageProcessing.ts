@@ -1,12 +1,30 @@
-import { R2 } from "@convex-dev/r2";
-import { components, api } from "./_generated/api";
+"use node";
+
+import { api } from "./_generated/api";
 import { Jimp } from "jimp";
+import { v } from "convex/values";
+import { action } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
+import { r2 } from "./videos";
 
-const r2 = new R2(components.r2);
+// Extract YouTube video ID from various URL formats
+function extractVideoId(url: string): string | null {
+  const patterns = [
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&\n?#]+)/,
+    /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^&\n?#]+)/,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([^&\n?#]+)/,
+  ];
 
-export async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   // Load the original image with Jimp
-  const image = await Jimp.read(Buffer.from(imageBuffer));
+  const image = await Jimp.read(imageBuffer);
   const { width, height } = image.bitmap;
 
   // Calculate play icon dimensions and position
@@ -64,7 +82,63 @@ export async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   image.composite(playIcon, iconLeft, iconTop);
 
   // Convert to JPEG buffer
-  return image.getBuffer("image/jpeg", {
+  const buffer = await image.getBuffer("image/jpeg", {
     quality: 90,
   });
+
+  // Convert to Uint8Array for Convex compatibility
+  return new Uint8Array(buffer);
 }
+
+// Complete workflow: process YouTube URL and create video entry
+export const processVideoUrl = action({
+  args: { url: v.string() },
+  handler: async (ctx, { url }): Promise<Id<"videos">> => {
+    // Step 1: Extract video ID and validate URL
+    const videoId = extractVideoId(url);
+    if (!videoId) {
+      throw new Error("Invalid YouTube URL");
+    }
+
+    // Step 2: Fetch video metadata from YouTube oEmbed API
+    const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    const response = await fetch(oEmbedUrl);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch video metadata");
+    }
+
+    const metadata = await response.json();
+    const cleanUrl = `https://youtu.be/${videoId}`;
+    const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+    // Step 3: Generate and store thumbnail in R2
+    // Fetch the original thumbnail
+    const thumbnailResponse = await fetch(thumbnailUrl);
+    if (!thumbnailResponse.ok) {
+      throw new Error(
+        `Failed to fetch thumbnail: ${thumbnailResponse.status} ${thumbnailResponse.statusText}`,
+      );
+    }
+
+    const arrayBuffer = await thumbnailResponse.arrayBuffer();
+    const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
+
+    // Store the processed thumbnail in R2
+    const thumbnailKey = await r2.store(ctx, processedImageBuffer, {
+      key: `thumbnails/${videoId}-with-play-icon.jpg`,
+      type: "image/jpeg",
+    });
+
+    // Step 4: Create video entry in database
+    const videoDocId = await ctx.runMutation(api.videos.createVideo, {
+      url: cleanUrl,
+      videoId: videoId,
+      title: metadata.title,
+      thumbnailKey,
+      originalThumbnailUrl: thumbnailUrl,
+    });
+
+    return videoDocId;
+  },
+});
