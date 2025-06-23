@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as imageProcessing from "../imageProcessing.js";
 import type * as videos from "../videos.js";
 
 import type {
@@ -25,6 +26,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  imageProcessing: typeof imageProcessing;
   videos: typeof videos;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

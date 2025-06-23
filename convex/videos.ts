@@ -3,6 +3,7 @@ import { mutation, query, action } from "./_generated/server";
 import { R2 } from "@convex-dev/r2";
 import { components, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { addPlayIconToThumbnail } from "./imageProcessing";
 
 export const r2 = new R2(components.r2);
 
@@ -153,12 +154,17 @@ export const processVideoUrl = action({
     }
 
     const arrayBuffer = await thumbnailResponse.arrayBuffer();
+    const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
 
-    // Store the thumbnail in R2
-    const thumbnailKey = await r2.store(ctx, new Uint8Array(arrayBuffer), {
-      key: `thumbnails/${videoId}.jpg`,
-      type: "image/jpeg",
-    });
+    // Store the processed thumbnail in R2
+    const thumbnailKey = await r2.store(
+      ctx,
+      new Uint8Array(processedImageBuffer),
+      {
+        key: `thumbnails/${videoId}-with-play-icon.jpg`,
+        type: "image/jpeg",
+      },
+    );
 
     // Step 4: Create video entry in database
     const videoDocId = await ctx.runMutation(api.videos.createVideo, {
