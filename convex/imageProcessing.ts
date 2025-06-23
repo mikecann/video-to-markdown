@@ -29,7 +29,7 @@ async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   const { width, height } = image.bitmap;
 
   // Calculate play icon dimensions and position
-  const iconSize = Math.min(width, height) * 0.3; // 12% of the smaller dimension
+  const iconSize = Math.min(width, height) * 0.4; // 12% of the smaller dimension
   const iconLeft = Math.floor((width - iconSize) / 2);
   const iconTop = Math.floor((height - iconSize) / 2);
 
@@ -45,15 +45,16 @@ async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   const centerX = Math.floor(iconSize / 2);
   const centerY = Math.floor(iconSize / 2);
 
-  // Draw red circle with white border (YouTube style)
+  // Draw red circle with 3-pixel white border (YouTube style)
+  const borderWidth = 3;
   for (let x = 0; x < iconSize; x++) {
     for (let y = 0; y < iconSize; y++) {
       const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-      if (distance <= radius * 0.75) {
+      if (distance <= radius - borderWidth) {
         // Inner circle - red like YouTube
         playIcon.setPixelColor(0xff0000e6, x, y); // Red with ~90% opacity
-      } else if (distance <= radius * 0.9) {
-        // White border around the red circle
+      } else if (distance <= radius) {
+        // 3-pixel white border around the red circle
         playIcon.setPixelColor(0xffffffee, x, y); // White with ~93% opacity
       }
     }

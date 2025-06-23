@@ -65,10 +65,6 @@ export default function VideoCard({ video }: VideoCardProps) {
   return (
     <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
       <div className="p-4">
-        <h3 className="font-medium text-white mb-2 line-clamp-2">
-          {video.title}
-        </h3>
-
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-1">
