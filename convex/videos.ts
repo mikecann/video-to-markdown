@@ -221,27 +221,23 @@ export const processVideoUrl = action({
     const cleanUrl = `https://youtu.be/${videoId}`;
     const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
-    // Step 3: Generate and store thumbnail (optional - can be done async)
-    let thumbnailKey: string | undefined;
-    try {
-      // Fetch the original thumbnail
-      const thumbnailResponse = await fetch(thumbnailUrl);
-      if (thumbnailResponse.ok) {
-        const thumbnailBuffer = await thumbnailResponse.arrayBuffer();
-        const blob = new Blob([thumbnailBuffer], { type: "image/jpeg" });
-
-        // Store the thumbnail in R2
-        thumbnailKey = await r2.store(ctx, blob, {
-          key: `thumbnails/${videoId}.jpg`,
-          type: "image/jpeg",
-        });
-      }
-    } catch (error) {
-      console.error(
-        "Failed to generate custom thumbnail, using original:",
-        error,
+    // Step 3: Generate and store thumbnail in R2
+    // Fetch the original thumbnail
+    const thumbnailResponse = await fetch(thumbnailUrl);
+    if (!thumbnailResponse.ok) {
+      throw new Error(
+        `Failed to fetch thumbnail: ${thumbnailResponse.status} ${thumbnailResponse.statusText}`,
       );
     }
+
+    // Convert response to blob as per R2 documentation
+    const blob = await thumbnailResponse.blob();
+
+    // Store the thumbnail in R2
+    const thumbnailKey = await r2.store(ctx, blob, {
+      key: `thumbnails/${videoId}.jpg`,
+      type: "image/jpeg",
+    });
 
     // Step 4: Create video entry in database
     const videoDocId = await ctx.runMutation(api.videos.createVideo, {
