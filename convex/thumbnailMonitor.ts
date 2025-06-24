@@ -5,6 +5,8 @@ import {
   internalAction,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import {r2} from './videos';
+import {addPlayIconToThumbnail} from './utils';
 
 // Query to get video details for thumbnail checking
 export const getVideoForCheck = internalQuery({
@@ -25,7 +27,7 @@ export const checkThumbnailChanges = internalAction({
     );
 
     if (!video) {
-      console.log(`Video ${videoId} not found for thumbnail check`);
+      console.log(`Video with ID '${videoId}' not found for thumbnail check`);
       return;
     }
 
@@ -41,7 +43,7 @@ export const checkThumbnailChanges = internalAction({
 
       if (thumbnailCheckResult.error) {
         console.log(
-          `Failed to check thumbnail for video ${video.videoId}: ${thumbnailCheckResult.error}`,
+          `Failed to check thumbnail for video '${video.videoId}' with ID '${videoId}': ${thumbnailCheckResult.error}`,
         );
         // Schedule next check with same interval
         await ctx.runMutation(internal.thumbnailMonitor.scheduleNextCheck, {
@@ -54,28 +56,9 @@ export const checkThumbnailChanges = internalAction({
 
       const { thumbnailChanged, newHash } = thumbnailCheckResult;
 
-      if (thumbnailChanged) {
+      if (!thumbnailChanged) {
         console.log(
-          `Thumbnail changed for video ${video.videoId}, regenerating...`,
-        );
-
-        // Process the new thumbnail and update R2
-        if (video.thumbnailKey) {
-          await ctx.runAction(internal.images.updateProcessedThumbnail, {
-            originalThumbnailUrl: video.originalThumbnailUrl,
-            thumbnailKey: video.thumbnailKey,
-          });
-        }
-
-        // Update video record with new hash and reset interval
-        await ctx.runMutation(internal.thumbnailMonitor.updateVideoAfterCheck, {
-          videoId,
-          newHash,
-          thumbnailChanged: true,
-        });
-      } else {
-        console.log(
-          `Thumbnail unchanged for video ${video.videoId}, increasing check interval`,
+          `Thumbnail unchanged for video '${video.videoId}' with ID '${videoId}', increasing check interval`,
         );
 
         // Update video record and increase interval
@@ -84,17 +67,61 @@ export const checkThumbnailChanges = internalAction({
           newHash,
           thumbnailChanged: false,
         });
+
+        // Schedule the next check
+        await ctx.runMutation(internal.thumbnailMonitor.scheduleNextCheck, {
+          videoId,
+          thumbnailChanged: false,
+          error: false,
+        });
+        return;
       }
+
+      console.log(
+        `Thumbnail changed for video '${video.videoId}' with ID '${videoId}', regenerating...`,
+      );
+
+      // Process the new thumbnail and update R2
+      if (video.thumbnailKey) {
+        await ctx.runAction(internal.images.updateProcessedThumbnail, {
+          originalThumbnailUrl: video.originalThumbnailUrl,
+          thumbnailKey: video.thumbnailKey,
+        });
+
+        // Download the original thumbnail
+      const thumbnailResponse = await fetch(video.originalThumbnailUrl);
+      if (!thumbnailResponse.ok) {
+        throw new Error(
+          `Failed to fetch thumbnail: ${thumbnailResponse.status}`,
+        );
+      }
+
+      const arrayBuffer = await thumbnailResponse.arrayBuffer();
+      const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
+
+      // Update the same R2 key to keep URL consistent
+      await r2.store(ctx, processedImageBuffer, {
+        key: video.thumbnailKey,
+        type: "image/jpeg",
+      });
+      }
+
+      // Update video record with new hash and reset interval
+      await ctx.runMutation(internal.thumbnailMonitor.updateVideoAfterCheck, {
+        videoId,
+        newHash,
+        thumbnailChanged: true,
+      });
 
       // Schedule the next check
       await ctx.runMutation(internal.thumbnailMonitor.scheduleNextCheck, {
         videoId,
-        thumbnailChanged,
+        thumbnailChanged: true,
         error: false,
       });
     } catch (error) {
       console.error(
-        `Error checking thumbnail for video ${video.videoId}:`,
+        `Error checking thumbnail for video '${video.videoId}' with ID '${videoId}':`,
         error,
       );
 
@@ -117,7 +144,10 @@ export const updateVideoAfterCheck = internalMutation({
   },
   handler: async (ctx, { videoId, newHash, thumbnailChanged }) => {
     const video = await ctx.db.get(videoId);
-    if (!video) return;
+    if (!video) {
+      console.log(`Video with ID '${videoId}' not found for thumbnail update`);
+      return;
+    }
 
     const currentInterval = video.checkIntervalDays || 1;
 
@@ -143,12 +173,16 @@ export const scheduleNextCheck = internalMutation({
   },
   handler: async (ctx, { videoId, thumbnailChanged, error }) => {
     const video = await ctx.db.get(videoId);
-    if (!video) return;
+    if (!video) {
+      console.log(
+        `Video with ID '${videoId}' not found for scheduling next check`,
+      );
+      return;
+    }
 
     // Cancel existing scheduled function if it exists
-    if (video.scheduledFunctionId) {
+    if (video.scheduledFunctionId)
       await ctx.scheduler.cancel(video.scheduledFunctionId);
-    }
 
     // Calculate next check time
     const currentInterval = video.checkIntervalDays || 1;
