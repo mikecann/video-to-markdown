@@ -137,6 +137,18 @@ export async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
   // Composite the play icon onto the original image
   image.composite(playIcon, iconLeft, iconTop);
 
+  // Resize image to max 1024 width or height while maintaining aspect ratio
+  const maxDimension = 1024;
+  if (width > maxDimension || height > maxDimension) {
+    if (width > height) {
+      const newHeight = Math.floor((height * maxDimension) / width);
+      image.resize({ w: maxDimension, h: newHeight });
+    } else {
+      const newWidth = Math.floor((width * maxDimension) / height);
+      image.resize({ w: newWidth, h: maxDimension });
+    }
+  }
+
   // Convert to JPEG buffer
   const buffer = await image.getBuffer("image/jpeg", {
     quality: 90,
