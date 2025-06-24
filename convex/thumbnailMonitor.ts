@@ -5,8 +5,8 @@ import {
   internalAction,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import {r2} from './videos';
-import {addPlayIconToThumbnail} from './utils';
+import { r2 } from "./videos";
+import { addPlayIconToThumbnail, checkIfThumbnailChanged } from "./utils";
 
 // Query to get video details for thumbnail checking
 export const getVideoForCheck = internalQuery({
@@ -32,14 +32,11 @@ export const checkThumbnailChanges = internalAction({
     }
 
     try {
-      // Download current thumbnail from YouTube and check if it changed
-      const thumbnailCheckResult = await ctx.runAction(
-        internal.images.checkThumbnailChanged,
-        {
-          originalThumbnailUrl: video.originalThumbnailUrl,
-          lastThumbnailHash: video.lastThumbnailHash || "",
-        },
-      );
+      // Check if thumbnail has changed using helper function
+      const thumbnailCheckResult = await checkIfThumbnailChanged({
+        originalThumbnailUrl: video.originalThumbnailUrl,
+        lastThumbnailHash: video.lastThumbnailHash || "",
+      });
 
       if (thumbnailCheckResult.error) {
         console.log(
@@ -54,7 +51,7 @@ export const checkThumbnailChanges = internalAction({
         return;
       }
 
-      const { thumbnailChanged, newHash } = thumbnailCheckResult;
+      const { thumbnailChanged, newHash, arrayBuffer } = thumbnailCheckResult;
 
       if (!thumbnailChanged) {
         console.log(
@@ -82,28 +79,13 @@ export const checkThumbnailChanges = internalAction({
       );
 
       // Process the new thumbnail and update R2
-      if (video.thumbnailKey) {
-        await ctx.runAction(internal.images.updateProcessedThumbnail, {
-          originalThumbnailUrl: video.originalThumbnailUrl,
-          thumbnailKey: video.thumbnailKey,
+      if (video.thumbnailKey && arrayBuffer) {
+        const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
+        // Update the same R2 key to keep URL consistent
+        await r2.store(ctx, processedImageBuffer, {
+          key: video.thumbnailKey,
+          type: "image/jpeg",
         });
-
-        // Download the original thumbnail
-      const thumbnailResponse = await fetch(video.originalThumbnailUrl);
-      if (!thumbnailResponse.ok) {
-        throw new Error(
-          `Failed to fetch thumbnail: ${thumbnailResponse.status}`,
-        );
-      }
-
-      const arrayBuffer = await thumbnailResponse.arrayBuffer();
-      const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
-
-      // Update the same R2 key to keep URL consistent
-      await r2.store(ctx, processedImageBuffer, {
-        key: video.thumbnailKey,
-        type: "image/jpeg",
-      });
       }
 
       // Update video record with new hash and reset interval
@@ -145,20 +127,18 @@ export const updateVideoAfterCheck = internalMutation({
   handler: async (ctx, { videoId, newHash, thumbnailChanged }) => {
     const video = await ctx.db.get(videoId);
     if (!video) {
-      console.log(`Video with ID '${videoId}' not found for thumbnail update`);
+      console.warn(`Video with ID '${videoId}' not found for thumbnail update`);
       return;
     }
 
-    const currentInterval = video.checkIntervalDays || 1;
-
-    // If thumbnail changed, reset to 1 day. Otherwise, double the interval (max 16 days)
-    const nextInterval = thumbnailChanged
-      ? 1
-      : Math.min(currentInterval * 2, 16);
-
     await ctx.db.patch(videoId, {
       lastThumbnailHash: newHash,
-      checkIntervalDays: nextInterval,
+
+      // If thumbnail changed, reset to 1 day. Otherwise, double the interval (max 16 days)
+      checkIntervalDays: thumbnailChanged
+        ? 1
+        : Math.min((video.checkIntervalDays || 1) * 2, 16),
+
       lastCheckedAt: Date.now(),
     });
   },
@@ -174,7 +154,7 @@ export const scheduleNextCheck = internalMutation({
   handler: async (ctx, { videoId, thumbnailChanged, error }) => {
     const video = await ctx.db.get(videoId);
     if (!video) {
-      console.log(
+      console.warn(
         `Video with ID '${videoId}' not found for scheduling next check`,
       );
       return;

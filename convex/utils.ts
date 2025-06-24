@@ -8,6 +8,49 @@ export const createHash = async (data: Uint8Array): Promise<string> => {
     .join("");
 };
 
+// Fetch thumbnail from URL and return ArrayBuffer
+export async function fetchThumbnailFromUrl(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch thumbnail: ${response.status} ${response.statusText}`,
+    );
+  }
+  return await response.arrayBuffer();
+}
+
+// Create hash from thumbnail ArrayBuffer
+export async function hashThumbnail(arrayBuffer: ArrayBuffer): Promise<string> {
+  return await createHash(new Uint8Array(arrayBuffer));
+}
+
+export const getYoutubeOembedMetadata = async (videoId: string) => {
+  const response = await fetch(
+    `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+  );
+  if (!response.ok) throw new Error("Failed to fetch video metadata");
+  return await response.json();
+};
+
+export const getThumbnailUrlForYoutubeVideo = (videoId: string) =>
+  `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+export const fetchAndAddThumbToVideo = async (thumbnailUrl: string) => {
+  const arrayBuffer = await fetchThumbnailFromUrl(thumbnailUrl);
+  const thumbnailHash = await hashThumbnail(arrayBuffer);
+  const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
+  return { thumbnailHash, processedImageBuffer };
+};
+
+export const getYoutubeVideoTitle = async (
+  videoId: string,
+): Promise<string> => {
+  const metadata = await getYoutubeOembedMetadata(videoId);
+  if (!metadata || !("title" in metadata))
+    throw new Error("Invalid YouTube metadata for url: " + videoId);
+  return metadata.title;
+};
+
 // Extract YouTube video ID from various URL formats
 export function extractVideoId(url: string): string | null {
   const patterns = [
@@ -98,4 +141,33 @@ export async function addPlayIconToThumbnail(imageBuffer: ArrayBuffer) {
 
   // Convert to Uint8Array for Convex compatibility
   return new Uint8Array(buffer);
+}
+
+// Helper function to check if thumbnail has changed
+export async function checkIfThumbnailChanged({
+  originalThumbnailUrl,
+  lastThumbnailHash,
+}: {
+  originalThumbnailUrl: string;
+  lastThumbnailHash: string;
+}) {
+  try {
+    const arrayBuffer = await fetchThumbnailFromUrl(originalThumbnailUrl);
+    const currentHash = await hashThumbnail(arrayBuffer);
+    const thumbnailChanged = lastThumbnailHash !== currentHash;
+
+    return {
+      error: null,
+      thumbnailChanged,
+      newHash: currentHash,
+      arrayBuffer,
+    };
+  } catch (error) {
+    return {
+      error: `Error checking thumbnail: ${error}`,
+      thumbnailChanged: false,
+      newHash: "",
+      arrayBuffer: null,
+    };
+  }
 }
