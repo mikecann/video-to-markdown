@@ -5,7 +5,6 @@ import {
   internalAction,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
 
 // Query to get video details for thumbnail checking
 export const getVideoForCheck = internalQuery({
@@ -33,7 +32,7 @@ export const checkThumbnailChanges = internalAction({
     try {
       // Download current thumbnail from YouTube and check if it changed
       const thumbnailCheckResult = await ctx.runAction(
-        internal.imageProcessing.checkThumbnailChanged,
+        internal.images.checkThumbnailChanged,
         {
           originalThumbnailUrl: video.originalThumbnailUrl,
           lastThumbnailHash: video.lastThumbnailHash || "",
@@ -62,13 +61,10 @@ export const checkThumbnailChanges = internalAction({
 
         // Process the new thumbnail and update R2
         if (video.thumbnailKey) {
-          await ctx.runAction(
-            internal.imageProcessing.updateProcessedThumbnail,
-            {
-              originalThumbnailUrl: video.originalThumbnailUrl,
-              thumbnailKey: video.thumbnailKey,
-            },
-          );
+          await ctx.runAction(internal.images.updateProcessedThumbnail, {
+            originalThumbnailUrl: video.originalThumbnailUrl,
+            thumbnailKey: video.thumbnailKey,
+          });
         }
 
         // Update video record with new hash and reset interval
