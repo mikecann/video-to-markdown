@@ -1,7 +1,6 @@
 import { SparklesText } from "./components/ui/sparkles-text";
 import VideoForm from "./components/VideoForm";
 import VideosList from "./components/VideosList";
-import { BeamsBackground } from "@/components/ui/beams-background";
 
 const Logo = () => (
   <div className="w-10 h-10 bg-red-600 rounded flex items-center justify-center">

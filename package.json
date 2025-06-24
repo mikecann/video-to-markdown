@@ -1,7 +1,18 @@
 {
   "name": "video-to-markdown",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Transform YouTube videos into beautiful markdown code with thumbnails. Perfect for documentation, READMEs, and blog posts.",
+  "keywords": [
+    "video",
+    "markdown",
+    "youtube",
+    "documentation",
+    "readme",
+    "converter"
+  ],
+  "author": "Video to Markdown",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
