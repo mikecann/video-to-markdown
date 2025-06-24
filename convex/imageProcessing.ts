@@ -1,12 +1,19 @@
-"use node";
-
 import { api, internal } from "./_generated/api";
 import { Jimp } from "jimp";
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./videos";
-import { randomUUID, createHash } from "crypto";
+
+// Web Crypto API alternatives
+const createHash = async (data: Uint8Array): Promise<string> => {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+};
+
+const randomUUID = () => crypto.randomUUID();
 
 // Extract YouTube video ID from various URL formats
 function extractVideoId(url: string): string | null {
@@ -134,9 +141,7 @@ export const processVideoUrl = action({
     const arrayBuffer = await thumbnailResponse.arrayBuffer();
 
     // Create hash of original thumbnail for monitoring
-    const thumbnailHash = createHash("sha256")
-      .update(new Uint8Array(arrayBuffer))
-      .digest("hex");
+    const thumbnailHash = await createHash(new Uint8Array(arrayBuffer));
 
     const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
 
@@ -197,9 +202,7 @@ export const checkThumbnailChanged = internalAction({
       const arrayBuffer = await thumbnailResponse.arrayBuffer();
 
       // Create hash of current thumbnail
-      const currentHash = createHash("sha256")
-        .update(new Uint8Array(arrayBuffer))
-        .digest("hex");
+      const currentHash = await createHash(new Uint8Array(arrayBuffer));
 
       // Compare with stored hash
       const thumbnailChanged = lastThumbnailHash !== currentHash;
