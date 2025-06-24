@@ -6,8 +6,11 @@ import { r2 } from "./videos";
 import {
   extractVideoId,
   getYoutubeVideoTitle,
-  fetchAndAddThumbToVideo,
+  fetchAndDecorateThumb,
   getThumbnailUrlForYoutubeVideo,
+  getDecoratedThumbnailUrl,
+  hoursToMilliseconds,
+  hoursFromNowInMilliseconds,
 } from "./utils";
 
 // Complete workflow: process YouTube URL and create video entry
@@ -20,36 +23,34 @@ export const processVideoUrl = action({
 
     // Step 2: Fetch video metadata from YouTube oEmbed API
     const title = await getYoutubeVideoTitle(videoId);
-    const cleanUrl = `https://youtu.be/${videoId}`;
-    const thumbnailUrl = getThumbnailUrlForYoutubeVideo(videoId);
+    const originalThumbnailUrl = getThumbnailUrlForYoutubeVideo(videoId);
 
     // Step 3: Generate and store thumbnail in R2
     // Fetch the original thumbnail
-    const { processedImageBuffer, thumbnailHash } =
-      await fetchAndAddThumbToVideo(thumbnailUrl);
+    const { decoratedBuffer, initialThumbnailHash } =
+      await fetchAndDecorateThumb(originalThumbnailUrl);
 
     // Store the processed thumbnail in R2
     const shortId = crypto.randomUUID().substring(0, 8); // Generate 8-character random ID
-    const thumbnailKey = await r2.store(ctx, processedImageBuffer, {
+    const thumbnailKey = await r2.store(ctx, decoratedBuffer, {
       key: `${shortId}.jpg`,
       type: "image/jpeg",
     });
 
     // Step 4: Create video entry in database
     const videoDocId = await ctx.runMutation(api.videos.createVideo, {
-      url: cleanUrl,
+      url: `https://youtu.be/${videoId}`,
       videoId: videoId,
       title,
       thumbnailKey,
-      originalThumbnailUrl: thumbnailUrl,
-      processedThumbnailUrl: `https://thumbs.video-to-markdown.com/${thumbnailKey}`,
-      initialThumbnailHash: thumbnailHash,
+      originalThumbnailUrl,
+      processedThumbnailUrl: getDecoratedThumbnailUrl(thumbnailKey),
+      initialThumbnailHash,
     });
 
     // Step 5: Schedule initial thumbnail check for tomorrow
-    const scheduledTime = Date.now() + 24 * 60 * 60 * 1000; // 24 hours from now
     const scheduledFunctionId = await ctx.scheduler.runAt(
-      scheduledTime,
+      hoursFromNowInMilliseconds(24),
       internal.thumbnailMonitor.checkThumbnailChanges,
       { videoId: videoDocId },
     );

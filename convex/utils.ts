@@ -35,11 +35,14 @@ export const getYoutubeOembedMetadata = async (videoId: string) => {
 export const getThumbnailUrlForYoutubeVideo = (videoId: string) =>
   `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
-export const fetchAndAddThumbToVideo = async (thumbnailUrl: string) => {
-  const arrayBuffer = await fetchThumbnailFromUrl(thumbnailUrl);
-  const thumbnailHash = await hashThumbnail(arrayBuffer);
-  const processedImageBuffer = await addPlayIconToThumbnail(arrayBuffer);
-  return { thumbnailHash, processedImageBuffer };
+export const getDecoratedThumbnailUrl = (thumbnailKey: string) =>
+  `https://thumbs.video-to-markdown.com/${thumbnailKey}`;
+
+export const fetchAndDecorateThumb = async (thumbnailUrl: string) => {
+  const orginalBuffer = await fetchThumbnailFromUrl(thumbnailUrl);
+  const initialThumbnailHash = await hashThumbnail(orginalBuffer);
+  const decoratedBuffer = await addPlayIconToThumbnail(orginalBuffer);
+  return { initialThumbnailHash, decoratedBuffer };
 };
 
 export const getYoutubeVideoTitle = async (
@@ -171,3 +174,13 @@ export async function checkIfThumbnailChanged({
     };
   }
 }
+
+export const hoursToMilliseconds = (hours: number) => hours * 60 * 60 * 1000;
+
+export const hoursFromNowInMilliseconds = (hours: number) =>
+  Date.now() + hoursToMilliseconds(hours);
+
+export const daysToMilliseconds = (days: number) => days * 24 * 60 * 60 * 1000;
+
+export const daysFromNowInMilliseconds = (days: number) =>
+  Date.now() + daysToMilliseconds(days);

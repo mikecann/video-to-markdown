@@ -6,7 +6,11 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { r2 } from "./videos";
-import { addPlayIconToThumbnail, checkIfThumbnailChanged } from "./utils";
+import {
+  addPlayIconToThumbnail,
+  checkIfThumbnailChanged,
+  daysFromNowInMilliseconds,
+} from "./utils";
 
 // Query to get video details for thumbnail checking
 export const getVideoForCheck = internalQuery({
@@ -169,7 +173,7 @@ export const scheduleNextCheck = internalMutation({
     let nextInterval;
 
     if (error) {
-      // On error, keep same interval
+      
       nextInterval = currentInterval;
     } else if (thumbnailChanged) {
       // If thumbnail changed, reset to 1 day
@@ -180,9 +184,8 @@ export const scheduleNextCheck = internalMutation({
     }
 
     // Schedule next check
-    const scheduledTime = Date.now() + nextInterval * 24 * 60 * 60 * 1000; // Convert days to milliseconds
     const newScheduledFunctionId = await ctx.scheduler.runAt(
-      scheduledTime,
+      daysFromNowInMilliseconds(nextInterval),
       internal.thumbnailMonitor.checkThumbnailChanges,
       { videoId },
     );
