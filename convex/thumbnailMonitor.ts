@@ -174,7 +174,7 @@ export const scheduleNextCheck = internalMutation({
     const nextInterval = iife(() => {
       if (error) return currentInterval; // If error stay the same
       if (thumbnailChanged) return 1; // If thumbnail changed, reset to 1 day
-      return Math.min(currentInterval * 2, 16); // If unchanged, use the updated interval from updateVideoAfterCheck
+      return Math.min(currentInterval * 2, 16); // If unchanged, increase time between next check
     });
 
     // Schedule next check
