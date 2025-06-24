@@ -8,7 +8,7 @@ export default function VideoForm() {
   const [error, setError] = useState("");
 
   // Type-safe access to the API - will work once convex generates types
-  const processVideo = useAction(api.images.processVideoUrl);
+  const processVideo = useAction(api.videos.processVideoUrl);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as images from "../images.js";
 import type * as thumbnailMonitor from "../thumbnailMonitor.js";
 import type * as utils from "../utils.js";
 import type * as videos from "../videos.js";
@@ -28,7 +27,6 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  images: typeof images;
   thumbnailMonitor: typeof thumbnailMonitor;
   utils: typeof utils;
   videos: typeof videos;
