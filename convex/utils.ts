@@ -184,3 +184,5 @@ export const daysToMilliseconds = (days: number) => days * 24 * 60 * 60 * 1000;
 
 export const daysFromNowInMilliseconds = (days: number) =>
   Date.now() + daysToMilliseconds(days);
+
+export const iife = <T>(fn: () => T): T => fn();
