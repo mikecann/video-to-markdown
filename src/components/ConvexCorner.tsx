@@ -14,6 +14,7 @@ const ConvexCorner = () => (
           target="_blank"
           rel="noopener noreferrer"
           className="fixed top-0 left-0 z-50 group"
+          style={{ clipPath: "polygon(0 0, 0 100%, 100% 0)" }}
           aria-label="Made with Convex"
         >
           <svg
@@ -35,9 +36,12 @@ const ConvexCorner = () => (
       </TooltipTrigger>
       <TooltipContent
         side="right"
-        className="bg-gray-800 text-white border-gray-600"
+        align="start"
+        sideOffset={-10}
+        alignOffset={10}
+        className="bg-gray-800 text-white border-gray-600 text-xs px-2 py-1 shadow-lg"
       >
-        <p className="text-sm font-medium">Made with Convex</p>
+        <p className="font-medium">Made with Convex</p>
       </TooltipContent>
     </Tooltip>
   </TooltipProvider>
