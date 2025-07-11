@@ -9,7 +9,6 @@ import {
   getThumbnailUrlForYoutubeVideo,
   fetchAndDecorateThumb,
   getDecoratedThumbnailUrl,
-  hoursFromNowInMilliseconds,
 } from "./utils";
 
 export const r2 = new R2(components.r2);
@@ -33,7 +32,6 @@ export const createVideo = mutation({
       thumbnailKey: args.thumbnailKey,
       originalThumbnailUrl: args.originalThumbnailUrl,
       processedThumbnailUrl: args.processedThumbnailUrl,
-      createdAt: Date.now(),
       // Initialize thumbnail monitoring fields
       lastThumbnailHash: args.initialThumbnailHash,
       checkIntervalDays: 1, // Start with 1 day
@@ -68,18 +66,6 @@ export const getVideoUrl = query({
     const video = await ctx.db.get(id);
     if (!video) throw new Error("Video not found");
     return r2.getUrl(video.thumbnailKey || "");
-  },
-});
-
-export const updateScheduledFunction = mutation({
-  args: {
-    videoId: v.id("videos"),
-    scheduledFunctionId: v.id("_scheduled_functions"),
-  },
-  handler: async (ctx, { videoId, scheduledFunctionId }) => {
-    await ctx.db.patch(videoId, {
-      scheduledFunctionId,
-    });
   },
 });
 
@@ -118,16 +104,8 @@ export const processVideoUrl = action({
     });
 
     // Step 5: Schedule initial thumbnail check for tomorrow
-    const scheduledFunctionId = await ctx.scheduler.runAt(
-      hoursFromNowInMilliseconds(24),
-      internal.thumbnailMonitor.checkThumbnailChanges,
-      { videoId: videoDocId },
-    );
-
-    // Update video with scheduled function ID
-    await ctx.runMutation(api.videos.updateScheduledFunction, {
+    await ctx.runMutation(internal.thumbnailMonitor.scheduleInitialCheck, {
       videoId: videoDocId,
-      scheduledFunctionId,
     });
 
     return videoDocId;
