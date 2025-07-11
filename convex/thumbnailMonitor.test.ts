@@ -82,56 +82,12 @@ describe("thumbnailMonitor", () => {
     });
   });
 
-  describe("rescheduleAllVideos", () => {
-    it("should reschedule all videos with current intervals", async () => {
-      // TODO: Implement test
-    });
-
-    it("should cancel existing scheduled functions", async () => {
-      // TODO: Implement test
-    });
-
-    it("should return count of successful reschedules", async () => {
-      // TODO: Implement test
-    });
-
-    it("should return count of errors", async () => {
-      // TODO: Implement test
-    });
-
-    it("should handle individual video failures gracefully", async () => {
-      // TODO: Implement test
-    });
-
-    it("should use default 1-day interval for videos without checkIntervalDays", async () => {
-      // TODO: Implement test
-    });
-  });
-
   describe("getVideoForCheck", () => {
     it("should return video details for valid ID", async () => {
       // TODO: Implement test
     });
 
     it("should return null for invalid ID", async () => {
-      // TODO: Implement test
-    });
-  });
-
-  describe("getScheduledFunctionStatus", () => {
-    it("should return status for all videos", async () => {
-      // TODO: Implement test
-    });
-
-    it("should calculate next check time correctly", async () => {
-      // TODO: Implement test
-    });
-
-    it("should handle videos without lastCheckedAt", async () => {
-      // TODO: Implement test
-    });
-
-    it("should indicate whether video has scheduled function", async () => {
       // TODO: Implement test
     });
   });

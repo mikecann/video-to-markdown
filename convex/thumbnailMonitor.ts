@@ -201,29 +201,22 @@ export const scheduleInitialCheck = internalMutation({
 
     console.log(`Scheduling initial thumbnail check for video ${videoId}`);
 
-    try {
-      // Schedule first check for 24 hours from now
-      const scheduledFunctionId = await ctx.scheduler.runAt(
-        daysFromNowInMilliseconds(1),
-        internal.thumbnailMonitor.checkThumbnailChanges,
-        { videoId },
-      );
+    // Schedule first check for 24 hours from now
+    const scheduledFunctionId = await ctx.scheduler.runAt(
+      daysFromNowInMilliseconds(1),
+      internal.thumbnailMonitor.checkThumbnailChanges,
+      { videoId },
+    );
 
-      // Update video with scheduled function ID
-      await ctx.db.patch(videoId, {
-        scheduledFunctionId,
-      });
-
-      console.log(`Successfully scheduled initial check for video ${videoId}`);
-    } catch (e) {
-      console.error(
-        `Failed to schedule initial check for video ${videoId}: ${e}`,
-      );
-    }
+    // Update video with scheduled function ID
+    await ctx.db.patch(videoId, {
+      scheduledFunctionId,
+    });
   },
 });
 
 // Debug query to check scheduled function status
+// this is a debug function and should not be tested
 export const getScheduledFunctionStatus = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -253,6 +246,7 @@ export const getScheduledFunctionStatus = internalQuery({
 });
 
 // Utility function to reschedule all videos (for fixing broken scheduled functions)
+// this is a debug function and should not be tested
 export const rescheduleAllVideos = internalMutation({
   args: {},
   handler: async (ctx) => {
