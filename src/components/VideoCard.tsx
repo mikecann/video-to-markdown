@@ -103,20 +103,12 @@ export default function VideoCard({ video }: VideoCardProps) {
               🔄 {nextCheckTime}
             </div>
           </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <div className="text-center">
-              <div className="font-medium">Thumbnail Monitor</div>
-              <div className="text-sm opacity-90">
-                Next check in {nextCheckTime}
-              </div>
-              {nextCheckTime !== "Unknown" && (
-                <div className="text-xs opacity-75 mt-1">
-                  Automatically checks if YouTube thumbnail changed and updates.
-                  <br />
-                  Interval increases (1d→2d→4d→8d→16d) when unchanged.
-                </div>
-              )}
-            </div>
+          <TooltipContent>
+            <p>
+              Checks for thumbnail changes automatically.
+              <br />
+              Interval increases (1d→2d→4d→8d→16d→32d) when unchanged.
+            </p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

@@ -39,72 +39,36 @@ export const rescheduleAllVideos = internalMutation({
   args: {},
   handler: async (ctx) => {
     const videos = await ctx.db.query("videos").collect();
-    console.log(`Rescheduling ${videos.length} videos`);
+    console.log(`Triggering immediate check for ${videos.length} videos`);
 
-    let rescheduled = 0;
+    let triggered = 0;
     let errors = 0;
 
     for (const video of videos) {
       try {
-        // Cancel existing scheduled function if it exists
-        if (video.scheduledFunctionId) {
-          try {
-            await ctx.scheduler.cancel(video.scheduledFunctionId);
-          } catch (e) {
-            console.warn(
-              `Failed to cancel existing scheduled function for video ${video._id}: ${e}`,
-            );
-          }
-        }
-
-        // Schedule new check based on current interval or default to 1 day
-        const intervalDays = video.checkIntervalDays || 1;
-        const scheduledFunctionId = await ctx.scheduler.runAt(
-          daysFromNowInMilliseconds(intervalDays),
+        // Schedule an immediate check for the video's thumbnail.
+        // The checkThumbnailChanges action will handle cancelling any old scheduled
+        // function and scheduling the next one.
+        await ctx.scheduler.runAfter(
+          0, // Run as soon as possible
           internal.thumbnailMonitor.checkThumbnailChanges,
           { videoId: video._id },
         );
-
-        // Update video with new scheduled function ID
-        await ctx.db.patch(video._id, {
-          scheduledFunctionId,
-        });
-
-        rescheduled++;
-        console.log(`Rescheduled video ${video.videoId} (${video._id})`);
+        triggered++;
+        console.log(
+          `Triggered immediate check for video ${video.videoId} (${video._id})`,
+        );
       } catch (e) {
         errors++;
         console.error(
-          `Failed to reschedule video ${video.videoId} (${video._id}): ${e}`,
+          `Failed to trigger check for video ${video.videoId} (${video._id}): ${e}`,
         );
       }
     }
 
     console.log(
-      `Rescheduling complete: ${rescheduled} successful, ${errors} errors`,
+      `Triggering complete: ${triggered} successful, ${errors} errors`,
     );
-    return { rescheduled, errors };
-  },
-});
-
-// Temporary mutation to remove the legacy 'createdAt' field from all video documents
-export const removeCreatedAtField = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const videos = await ctx.db.query("videos").collect();
-
-    let updatedCount = 0;
-    for (const video of videos) {
-      if ("createdAt" in video) {
-        // TypeScript doesn't know about this field, so we use `as any`
-        // Setting it to `undefined` should remove the field from the document.
-        await ctx.db.patch(video._id, { createdAt: undefined } as any);
-        updatedCount++;
-      }
-    }
-
-    const message = `Cleanup complete. Checked ${videos.length} videos and removed 'createdAt' field from ${updatedCount} of them.`;
-    console.log(message);
-    return message;
+    return { triggered, errors };
   },
 });
