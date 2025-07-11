@@ -10,7 +10,7 @@ import {
   addPlayIconToThumbnail,
   checkIfThumbnailChanged,
   daysFromNowInMilliseconds,
-  iife,
+  calculateNextInterval,
 } from "./utils";
 
 // Query to get video details for thumbnail checking
@@ -146,11 +146,11 @@ export const updateVideoAndScheduleNext = internalMutation({
 
     // Calculate next check interval
     const currentInterval = video.checkIntervalDays || 1;
-    const nextInterval = iife(() => {
-      if (error) return currentInterval; // If error, keep same interval
-      if (thumbnailChanged) return 1; // If thumbnail changed, reset to 1 day
-      return Math.min(currentInterval * 2, 16); // If unchanged, double the interval (max 16 days)
-    });
+    const nextInterval = calculateNextInterval(
+      currentInterval,
+      thumbnailChanged,
+      error,
+    );
 
     console.log(
       `Scheduling next check for video ${videoId} in ${nextInterval} days`,

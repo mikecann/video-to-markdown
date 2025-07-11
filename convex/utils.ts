@@ -198,3 +198,14 @@ export const daysFromNowInMilliseconds = (days: number) =>
   Date.now() + daysToMilliseconds(days);
 
 export const iife = <T>(fn: () => T): T => fn();
+
+// Calculate the next check interval for thumbnail monitoring
+export const calculateNextInterval = (
+  currentInterval: number,
+  thumbnailChanged: boolean,
+  error: boolean,
+): number => {
+  if (error) return currentInterval; // If error, keep same interval
+  if (thumbnailChanged) return 1; // If thumbnail changed, reset to 1 day
+  return Math.min(currentInterval * 2, 16); // If unchanged, double the interval (max 16 days)
+};

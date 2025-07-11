@@ -8,6 +8,7 @@ import {
   hashThumbnail,
   createHash,
   checkIfThumbnailChanged,
+  calculateNextInterval,
 } from "./utils";
 
 describe("utils", () => {
@@ -418,6 +419,73 @@ describe("utils", () => {
       expect(result.arrayBuffer).toBe(mockArrayBuffer);
 
       vi.unstubAllGlobals();
+    });
+  });
+
+  describe("calculateNextInterval", () => {
+    it("should keep same interval on error", () => {
+      expect(calculateNextInterval(4, false, true)).toBe(4);
+      expect(calculateNextInterval(8, true, true)).toBe(8); // Error takes precedence
+      expect(calculateNextInterval(16, false, true)).toBe(16);
+    });
+
+    it("should reset to 1 day when thumbnail changes", () => {
+      expect(calculateNextInterval(4, true, false)).toBe(1);
+      expect(calculateNextInterval(8, true, false)).toBe(1);
+      expect(calculateNextInterval(16, true, false)).toBe(1);
+    });
+
+    it("should double interval when thumbnail unchanged", () => {
+      expect(calculateNextInterval(1, false, false)).toBe(2);
+      expect(calculateNextInterval(2, false, false)).toBe(4);
+      expect(calculateNextInterval(4, false, false)).toBe(8);
+      expect(calculateNextInterval(8, false, false)).toBe(16);
+    });
+
+    it("should cap interval at 16 days maximum", () => {
+      expect(calculateNextInterval(16, false, false)).toBe(16);
+      expect(calculateNextInterval(32, false, false)).toBe(16); // Should never happen, but test boundary
+    });
+
+    it("should handle default interval of 1 day", () => {
+      expect(calculateNextInterval(1, false, false)).toBe(2);
+      expect(calculateNextInterval(1, true, false)).toBe(1);
+      expect(calculateNextInterval(1, false, true)).toBe(1);
+    });
+
+    it("should follow correct progression: 1 -> 2 -> 4 -> 8 -> 16", () => {
+      const progression = [1, 2, 4, 8, 16];
+
+      for (let i = 0; i < progression.length - 1; i++) {
+        const current = progression[i];
+        const expected = progression[i + 1];
+        const actual = calculateNextInterval(current, false, false);
+        expect(actual).toBe(expected);
+      }
+    });
+
+    it("should maintain 16 days at maximum", () => {
+      // Once at 16 days, should stay there
+      expect(calculateNextInterval(16, false, false)).toBe(16);
+      expect(calculateNextInterval(16, false, false)).toBe(16);
+      expect(calculateNextInterval(16, false, false)).toBe(16);
+    });
+
+    it("should reset progression when thumbnail changes", () => {
+      // At any point in progression, should reset to 1 day
+      expect(calculateNextInterval(16, true, false)).toBe(1);
+      expect(calculateNextInterval(8, true, false)).toBe(1);
+      expect(calculateNextInterval(4, true, false)).toBe(1);
+      expect(calculateNextInterval(2, true, false)).toBe(1);
+    });
+
+    it("should handle edge cases gracefully", () => {
+      // Invalid intervals should still work
+      expect(calculateNextInterval(0, false, false)).toBe(0);
+      expect(calculateNextInterval(-1, false, false)).toBe(-2); // Mathematically correct
+
+      // Error takes precedence over thumbnail change
+      expect(calculateNextInterval(8, true, true)).toBe(8);
     });
   });
 });
