@@ -46,7 +46,7 @@ export const checkThumbnailChanges = internalAction({
       });
 
       if (thumbnailCheckResult.error) {
-        console.log(
+        console.error(
           `Failed to check thumbnail for video '${video.videoId}' with ID '${videoId}': ${thumbnailCheckResult.error}`,
         );
         // Schedule next check with same interval on error
@@ -154,6 +154,7 @@ export const updateVideoAndScheduleNext = internalMutation({
 
     console.log(
       `Scheduling next check for video ${videoId} in ${nextInterval} days`,
+      { thumbnailChanged },
     );
 
     // Schedule next check
