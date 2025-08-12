@@ -159,9 +159,10 @@ export const updateVideoAndScheduleNext = internalMutation({
 
     // Schedule next check
     let newScheduledFunctionId;
+    const nextCheckAt = daysFromNowInMilliseconds(nextInterval);
     try {
       newScheduledFunctionId = await ctx.scheduler.runAt(
-        daysFromNowInMilliseconds(nextInterval),
+        nextCheckAt,
         internal.thumbnailMonitor.checkThumbnailChanges,
         { videoId },
       );
@@ -179,6 +180,7 @@ export const updateVideoAndScheduleNext = internalMutation({
       lastThumbnailHash: newHash,
       checkIntervalDays: nextInterval,
       lastCheckedAt: Date.now(),
+      nextCheckAt,
       scheduledFunctionId: newScheduledFunctionId,
     });
 
@@ -209,9 +211,10 @@ export const scheduleInitialCheck = internalMutation({
       { videoId },
     );
 
-    // Update video with scheduled function ID
+    // Update video with scheduled function ID and nextCheckAt
     await ctx.db.patch(videoId, {
       scheduledFunctionId,
+      nextCheckAt: daysFromNowInMilliseconds(1),
     });
   },
 });

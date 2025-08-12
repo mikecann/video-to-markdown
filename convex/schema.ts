@@ -13,6 +13,7 @@ export default defineSchema({
     scheduledFunctionId: v.optional(v.id("_scheduled_functions")), // ID of scheduled thumbnail check
     lastThumbnailHash: v.optional(v.string()), // Hash of the last downloaded thumbnail
     checkIntervalDays: v.optional(v.number()), // Current check interval in days (1, 2, 4, 8, 16)
+    nextCheckAt: v.optional(v.number()), // Timestamp when the next thumbnail check is scheduled to run
     lastCheckedAt: v.optional(v.number()), // Timestamp of last thumbnail check
   }).index("by_videoId", ["videoId"]),
 });

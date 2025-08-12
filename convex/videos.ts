@@ -36,6 +36,7 @@ export const createVideo = mutation({
       lastThumbnailHash: args.initialThumbnailHash,
       checkIntervalDays: 1, // Start with 1 day
       lastCheckedAt: Date.now(),
+      nextCheckAt: undefined,
     });
 
     return videoId;

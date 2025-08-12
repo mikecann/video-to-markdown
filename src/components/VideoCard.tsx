@@ -9,6 +9,18 @@ import { Doc } from "../../convex/_generated/dataModel";
 
 // Helper function to calculate next check time
 function getNextCheckTime(video: Doc<"videos">): string {
+  // Prefer the actual scheduled time if present
+  if (video.nextCheckAt) {
+    const now = Date.now();
+    if (video.nextCheckAt <= now) return "Due now";
+    const diffMs = video.nextCheckAt - now;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays > 0) return `${diffDays}d`;
+    if (diffHours > 0) return `${diffHours}h`;
+    return "<1h";
+  }
+
   if (!video.lastCheckedAt || !video.checkIntervalDays) {
     return "Unknown";
   }
