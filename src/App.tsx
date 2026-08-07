@@ -9,6 +9,8 @@ import {
   Box,
   ActionIcon,
   Divider,
+  Paper,
+  Button,
 } from "@mantine/core";
 import VideoForm from "./components/VideoForm";
 import VideosList from "./components/VideosList";
@@ -210,6 +212,65 @@ const VideosSection = () => (
   </Stack>
 );
 
+const ConvexPromo = () => (
+  <Paper
+    component="aside"
+    p={{ base: "lg", sm: "xl" }}
+    radius="lg"
+    withBorder
+    style={{
+      borderColor: "rgba(255, 107, 107, 0.22)",
+      background:
+        "linear-gradient(120deg, rgba(250, 82, 82, 0.12), rgba(37, 38, 43, 0.82) 55%)",
+    }}
+  >
+    <Group justify="space-between" align="center" gap="xl" wrap="wrap">
+      <Group align="flex-start" gap="md" wrap="nowrap" style={{ flex: "1 1 480px" }}>
+        <Box
+          p="sm"
+          style={{
+            flex: "0 0 auto",
+            borderRadius: "var(--mantine-radius-md)",
+            backgroundColor: "rgba(0, 0, 0, 0.22)",
+          }}
+        >
+          <img src="/convex.svg" alt="Convex" width={38} height={38} style={{ display: "block" }} />
+        </Box>
+        <Stack gap={5}>
+          <Title order={2} size="h3">Powered by Convex</Title>
+          <Text c="dimmed" maw={650} lh={1.6}>
+            Convex processes each video, coordinates thumbnail storage, and keeps every image
+            fresh with automatic background checks.
+          </Text>
+        </Stack>
+      </Group>
+
+      <Group gap="sm" wrap="wrap">
+        <Button
+          component="a"
+          href="https://youtu.be/KQVRDdmrIo4"
+          target="_blank"
+          rel="noopener noreferrer"
+          color="red"
+          variant="light"
+        >
+          Watch how it was built
+        </Button>
+        <Button
+          component="a"
+          href="https://convex.dev"
+          target="_blank"
+          rel="noopener noreferrer"
+          color="gray"
+          variant="subtle"
+        >
+          Build with Convex
+        </Button>
+      </Group>
+    </Group>
+  </Paper>
+);
+
 export default function App() {
   const route = useRoute();
   const videoParam = route.name === "home" ? route.params.video : undefined;
@@ -229,6 +290,7 @@ export default function App() {
             ) : (
               <>
                 <VideoForm />
+                <ConvexPromo />
                 <VideosSection />
               </>
             )}
