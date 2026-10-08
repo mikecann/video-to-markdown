@@ -48,11 +48,14 @@ describe("videos module business logic", () => {
     });
 
     it("should handle YouTube API failures gracefully", async () => {
-      // Mock API failure
+      // Mock API failure from YouTube oEmbed and the noembed.com fallback
       vi.stubGlobal(
         "fetch",
         vi.fn(async (url: string) => {
-          if (url.includes("youtube.com/oembed")) {
+          if (
+            url.includes("youtube.com/oembed") ||
+            url.includes("noembed.com")
+          ) {
             return { ok: false, status: 404, statusText: "Not Found" };
           }
           return { ok: true, arrayBuffer: async () => new ArrayBuffer(1024) };
