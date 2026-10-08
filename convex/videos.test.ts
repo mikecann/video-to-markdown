@@ -1,10 +1,13 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { ConvexError } from "convex/values";
+import { Jimp } from "jimp";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { extractVideoId, getYoutubeVideoTitle } from "./utils";
+import { r2 } from "./videos";
 
 const modules = import.meta.glob("./**/!(*.*.*)*.*s");
 
@@ -144,6 +147,87 @@ describe("videos module business logic", () => {
       // Type-level guard: `tsc` fails if createVideo is made public again.
       // @ts-expect-error createVideo is internal-only
       expect(api.videos.createVideo).toBeDefined();
+    });
+  });
+
+  describe("processVideoUrl when another request adds the same video first", () => {
+    const videoId = "dQw4w9WgXcQ";
+    const uploadedKey = "abcd1234.jpg";
+
+    // Stub YouTube, and make the R2 upload stand in for the slow part of the
+    // action: while it runs, another request inserts the same video.
+    async function setUpRace() {
+      const t = convexTest(schema, modules);
+      const jpeg = await new Jimp({
+        width: 4,
+        height: 4,
+        color: 0xff0000ff,
+      }).getBuffer("image/jpeg");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          if (url.includes("youtube.com/oembed")) {
+            return { ok: true, json: async () => ({ title: "Test Video" }) };
+          }
+          return {
+            ok: true,
+            arrayBuffer: async () => new Uint8Array(jpeg).buffer,
+          };
+        }),
+      );
+
+      let otherId: Id<"videos"> | undefined;
+      vi.spyOn(r2, "store").mockImplementation(async () => {
+        otherId = await t.mutation(internal.videos.createVideo, {
+          url: `https://youtu.be/${videoId}`,
+          videoId,
+          title: "Test Video",
+          thumbnailKey: "other123.jpg",
+          originalThumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          processedThumbnailUrl:
+            "https://thumbs.video-to-markdown.com/other123.jpg",
+        });
+        return uploadedKey;
+      });
+      const deleteObject = vi.spyOn(r2, "deleteObject");
+
+      return { t, deleteObject, getOtherId: () => otherId };
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should delete its own upload and report the existing video", async () => {
+      const { t, deleteObject, getOtherId } = await setUpRace();
+      deleteObject.mockResolvedValue(undefined);
+
+      const error = await t
+        .action(api.videos.processVideoUrl, {
+          url: `https://youtu.be/${videoId}`,
+        })
+        .catch((e: unknown) => e);
+
+      expect((error as Error).message).toContain("DUPLICATE_VIDEO");
+      expect((error as Error).message).toContain(getOtherId());
+      expect(deleteObject).toHaveBeenCalledWith(expect.anything(), uploadedKey);
+      const videos = await t.run((ctx) => ctx.db.query("videos").collect());
+      expect(videos).toHaveLength(1);
+    });
+
+    it("should still report the existing video if the cleanup fails", async () => {
+      const { t, deleteObject, getOtherId } = await setUpRace();
+      deleteObject.mockRejectedValue(new Error("R2 unavailable"));
+      vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const error = await t
+        .action(api.videos.processVideoUrl, {
+          url: `https://youtu.be/${videoId}`,
+        })
+        .catch((e: unknown) => e);
+
+      expect((error as Error).message).toContain("DUPLICATE_VIDEO");
+      expect((error as Error).message).toContain(getOtherId());
     });
   });
 

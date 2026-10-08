@@ -123,8 +123,17 @@ export const processVideoUrl = convex
       });
     } catch (error) {
       // Don't leave an orphaned thumbnail in R2 if the insert was rejected
-      // (e.g. another request added the same video first).
-      await r2.deleteObject(ctx, thumbnailKey);
+      // (e.g. another request added the same video first). A failed cleanup
+      // mustn't hide the original error, which callers use to show the
+      // existing video.
+      try {
+        await r2.deleteObject(ctx, thumbnailKey);
+      } catch (cleanupError) {
+        console.error(
+          `Failed to delete orphaned thumbnail ${thumbnailKey}:`,
+          cleanupError,
+        );
+      }
       throw error;
     }
 
