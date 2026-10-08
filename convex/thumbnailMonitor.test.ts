@@ -287,14 +287,19 @@ describe("thumbnailMonitor core logic", () => {
       vi.restoreAllMocks();
     });
 
-    async function runCheck(video: Awaited<ReturnType<typeof processedRow>>) {
+    type Row = Awaited<ReturnType<typeof processedRow>>;
+
+    async function runCheck(video: Row, otherRows: Row[] = []) {
       const t = convexTest(schema, modules);
       const fetch = vi.fn(async () => ({
         ok: true,
         arrayBuffer: async () => thumbnail,
       }));
       vi.stubGlobal("fetch", fetch);
-      const videoId = await t.run((ctx) => ctx.db.insert("videos", video));
+      const videoId = await t.run(async (ctx) => {
+        for (const row of otherRows) await ctx.db.insert("videos", row);
+        return await ctx.db.insert("videos", video);
+      });
       await t.action(internal.thumbnailMonitor.checkThumbnailChanges, {
         videoId,
       });
@@ -323,6 +328,30 @@ describe("thumbnailMonitor core logic", () => {
       expect(after?.checkIntervalDays).toBe(2);
       expect(after?.lastThumbnailHash).toBe(row.lastThumbnailHash);
       expect(after?.scheduledFunctionId).toBeDefined();
+    });
+
+    it("should skip a video whose thumbnail key another row also uses", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const row = await processedRow();
+      // A row that looks processed but claims someone else's key.
+      const copy = {
+        ...row,
+        url: "https://youtu.be/aaaaaaaaaaa",
+        videoId: "aaaaaaaaaaa",
+        originalThumbnailUrl:
+          "https://img.youtube.com/vi/aaaaaaaaaaa/maxresdefault.jpg",
+        lastThumbnailHash: "stale-hash",
+      };
+
+      for (const [video, other] of [
+        [copy, row],
+        [row, copy],
+      ]) {
+        const { fetch, after } = await runCheck(video, [other]);
+        expect(fetch).not.toHaveBeenCalled();
+        expect(after?.checkIntervalDays).toBe(2);
+        expect(after?.lastThumbnailHash).toBe(video.lastThumbnailHash);
+      }
     });
   });
 });

@@ -32,7 +32,20 @@ export const getVideoForCheck = convex
   .query()
   .input({ videoId: v.id("videos") })
   .handler(async (ctx, { videoId }) => {
-    return await ctx.db.get(videoId);
+    const video = await ctx.db.get(videoId);
+    if (!video) return null;
+    // A refresh overwrites the image at the row's key, so only the one row
+    // with that key may do it. Rows from the old public createVideo could
+    // copy a real video's key.
+    const rowsWithKey = video.thumbnailKey
+      ? await ctx.db
+          .query("videos")
+          .withIndex("by_thumbnailKey", (q) =>
+            q.eq("thumbnailKey", video.thumbnailKey),
+          )
+          .take(2)
+      : [];
+    return { video, ownsThumbnailKey: rowsWithKey.length === 1 };
   })
   .internal();
 
@@ -40,20 +53,24 @@ export const checkThumbnailChanges = convex
   .action()
   .input({ videoId: v.id("videos") })
   .handler(async (ctx, { videoId }) => {
-    const video = await ctx.runQuery(
+    const check = await ctx.runQuery(
       internal.thumbnailMonitor.getVideoForCheck,
       { videoId },
     );
 
-    if (!video) {
+    if (!check) {
       console.warn(`Thumbnail check: video ${videoId} not found, skipping`);
       return;
     }
 
-    if (!hasProcessedThumbnailShape(video)) {
-      console.warn(
-        `Thumbnail check: video ${videoId} doesn't look like one processVideoUrl created, skipping`,
-      );
+    const { video, ownsThumbnailKey } = check;
+    const skipReason = !hasProcessedThumbnailShape(video)
+      ? "doesn't look like one processVideoUrl created"
+      : !ownsThumbnailKey
+        ? `shares thumbnail key ${video.thumbnailKey} with another video`
+        : null;
+    if (skipReason) {
+      console.warn(`Thumbnail check: video ${videoId} ${skipReason}, skipping`);
       // Back off as if unchanged, so the repair cron doesn't retry it daily.
       await ctx.runMutation(
         internal.thumbnailMonitor.updateVideoAndScheduleNext,
