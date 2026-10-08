@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
 import { convex } from "./fluent";
 import { r2 } from "./videos";
 import {
@@ -9,6 +10,23 @@ import {
   calculateNextInterval,
   hasProcessedThumbnailShape,
 } from "./utils";
+
+// Replace a stored thumbnail in place, keeping its key and so its public URL
+// (which people have pasted into READMEs). r2.store() throws if the key
+// already has metadata, so clear that first. r2.deleteObject() isn't safe
+// here: it deletes the R2 object in a background job that can run after the
+// new upload and remove it.
+export async function overwriteThumbnail(
+  ctx: ActionCtx,
+  key: string,
+  image: Uint8Array,
+) {
+  await ctx.runMutation(components.r2.lib.deleteMetadata, {
+    key,
+    bucket: r2.config.bucket,
+  });
+  await r2.store(ctx, image, { key, type: "image/jpeg" });
+}
 
 export const getVideoForCheck = convex
   .query()
@@ -76,10 +94,7 @@ export const checkThumbnailChanges = convex
       if (thumbnailChanged && video.thumbnailKey && arrayBuffer) {
         const processedImageBuffer =
           await addPlayIconToThumbnail(arrayBuffer);
-        await r2.store(ctx, processedImageBuffer, {
-          key: video.thumbnailKey,
-          type: "image/jpeg",
-        });
+        await overwriteThumbnail(ctx, video.thumbnailKey, processedImageBuffer);
       }
 
       await ctx.runMutation(

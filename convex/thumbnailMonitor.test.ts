@@ -2,14 +2,44 @@
 import { convexTest } from "convex-test";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
 import schema from "./schema";
+import { overwriteThumbnail } from "./thumbnailMonitor";
 import {
   checkIfThumbnailChanged,
   daysFromNowInMilliseconds,
   hashThumbnail,
 } from "./utils";
+import { r2 } from "./videos";
 
 const modules = import.meta.glob("./**/!(*.*.*)*.*s");
+
+// A stand-in for the R2 component: a metadata table keyed by object key, and
+// an S3 client that records uploads instead of making network calls.
+function createFakeR2() {
+  const metadata = new Map<string, { key: string }>();
+  const uploads: string[] = [];
+  const ctx = {
+    runQuery: vi.fn(
+      async (_fn: unknown, args: { key: string }) =>
+        metadata.get(args.key) ?? null,
+    ),
+    runMutation: vi.fn(async (_fn: unknown, args: { key: string }) => {
+      metadata.delete(args.key);
+      return null;
+    }),
+    runAction: vi.fn(async (_fn: unknown, args: { key: string }) => {
+      metadata.set(args.key, { key: args.key });
+      return null;
+    }),
+  } as unknown as ActionCtx;
+  const send = vi.fn(async (command: { input: { Key: string } }) => {
+    uploads.push(command.input.Key);
+    return {};
+  });
+  (r2 as unknown as { _client: unknown })._client = { send };
+  return { ctx, metadata, uploads };
+}
 
 describe("thumbnailMonitor core logic", () => {
   beforeEach(() => {
@@ -86,6 +116,37 @@ describe("thumbnailMonitor core logic", () => {
       expect(result.thumbnailChanged).toBe(false);
       expect(result.newHash).toBe("");
       expect(result.arrayBuffer).toBeNull();
+    });
+  });
+
+  describe("overwriteThumbnail", () => {
+    afterEach(() => {
+      (r2 as unknown as { _client: unknown })._client = undefined;
+    });
+
+    const image = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+
+    it("should show r2.store refusing to overwrite an existing key", async () => {
+      const { ctx, metadata } = createFakeR2();
+      metadata.set("abc.jpg", { key: "abc.jpg" });
+
+      await expect(
+        r2.store(ctx, image, { key: "abc.jpg", type: "image/jpeg" }),
+      ).rejects.toThrow("Metadata already exists");
+    });
+
+    it("should re-upload under the same key when it already exists", async () => {
+      const { ctx, metadata, uploads } = createFakeR2();
+      metadata.set("abc.jpg", { key: "abc.jpg" });
+
+      await overwriteThumbnail(ctx, "abc.jpg", image);
+
+      expect(uploads).toEqual(["abc.jpg"]);
+      expect(metadata.has("abc.jpg")).toBe(true);
+      expect(ctx.runMutation).toHaveBeenCalledWith(expect.anything(), {
+        key: "abc.jpg",
+        bucket: r2.config.bucket,
+      });
     });
   });
 
