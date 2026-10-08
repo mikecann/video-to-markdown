@@ -1,5 +1,12 @@
+/// <reference types="vite/client" />
+import { convexTest } from "convex-test";
+import { ConvexError } from "convex/values";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { api, internal } from "./_generated/api";
+import schema from "./schema";
 import { extractVideoId, getYoutubeVideoTitle } from "./utils";
+
+const modules = import.meta.glob("./**/!(*.*.*)*.*s");
 
 describe("videos module business logic", () => {
   beforeEach(() => {
@@ -88,36 +95,55 @@ describe("videos module business logic", () => {
     });
   });
 
-  describe("createVideo business logic", () => {
-    it("should validate required fields for video creation", () => {
-      // Test that we have the right field structure
-      const requiredFields = {
-        url: "https://youtu.be/dQw4w9WgXcQ",
-        videoId: "dQw4w9WgXcQ",
-        title: "Test Video",
-        originalThumbnailUrl:
-          "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
-        processedThumbnailUrl:
-          "https://thumbs.video-to-markdown.com/test-key.jpg",
-      };
+  describe("createVideo", () => {
+    const videoArgs = {
+      url: "https://youtu.be/dQw4w9WgXcQ",
+      videoId: "dQw4w9WgXcQ",
+      title: "Test Video",
+      thumbnailKey: "test-key.jpg",
+      originalThumbnailUrl:
+        "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+      processedThumbnailUrl:
+        "https://thumbs.video-to-markdown.com/test-key.jpg",
+      initialThumbnailHash: "hash-123",
+    };
 
-      // Verify all required fields are present
-      expect(requiredFields.url).toBeTruthy();
-      expect(requiredFields.videoId).toBeTruthy();
-      expect(requiredFields.title).toBeTruthy();
-      expect(requiredFields.originalThumbnailUrl).toBeTruthy();
-      expect(requiredFields.processedThumbnailUrl).toBeTruthy();
+    it("should insert a video with default monitoring values", async () => {
+      const t = convexTest(schema, modules);
+      const id = await t.mutation(internal.videos.createVideo, videoArgs);
+
+      const video = await t.run((ctx) => ctx.db.get(id));
+      expect(video).toMatchObject({
+        videoId: "dQw4w9WgXcQ",
+        url: "https://youtu.be/dQw4w9WgXcQ",
+        lastThumbnailHash: "hash-123",
+        checkIntervalDays: 1,
+      });
     });
 
-    it("should set correct default values for monitoring", () => {
-      // Test default monitoring field values
-      const defaultMonitoringFields = {
-        checkIntervalDays: 1,
-        lastCheckedAt: Date.now(),
-      };
+    it("should reject a duplicate videoId", async () => {
+      const t = convexTest(schema, modules);
+      const id = await t.mutation(internal.videos.createVideo, videoArgs);
 
-      expect(defaultMonitoringFields.checkIntervalDays).toBe(1);
-      expect(defaultMonitoringFields.lastCheckedAt).toBeTypeOf("number");
+      const error = await t
+        .mutation(internal.videos.createVideo, {
+          ...videoArgs,
+          title: "Someone else's title",
+        })
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ConvexError);
+      expect((error as Error).message).toContain("DUPLICATE_VIDEO");
+      expect((error as Error).message).toContain(id);
+
+      const videos = await t.run((ctx) => ctx.db.query("videos").collect());
+      expect(videos).toHaveLength(1);
+      expect(videos[0].title).toBe("Test Video");
+    });
+
+    it("should not be exposed on the public API", () => {
+      // Type-level guard: `tsc` fails if createVideo is made public again.
+      // @ts-expect-error createVideo is internal-only
+      expect(api.videos.createVideo).toBeDefined();
     });
   });
 

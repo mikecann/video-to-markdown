@@ -1,6 +1,6 @@
 import { v, ConvexError } from "convex/values";
 import { R2 } from "@convex-dev/r2";
-import { components, api, internal as internalApi } from "./_generated/api";
+import { components, internal as internalApi } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { convex } from "./fluent";
 import {
@@ -26,6 +26,16 @@ export const createVideo = convex
     initialThumbnailHash: v.optional(v.string()),
   })
   .handler(async (ctx, args): Promise<Id<"videos">> => {
+    // processVideoUrl checks for duplicates too, but two requests for the same
+    // video can both pass that check while they fetch the thumbnail. Checking
+    // again here, inside the transaction, keeps videoId unique.
+    const existing = await ctx.db
+      .query("videos")
+      .withIndex("by_videoId", (q) => q.eq("videoId", args.videoId))
+      .first();
+    if (existing)
+      throw new ConvexError({ type: "DUPLICATE_VIDEO", id: existing._id });
+
     const videoId = await ctx.db.insert("videos", {
       url: args.url,
       videoId: args.videoId,
@@ -41,7 +51,7 @@ export const createVideo = convex
 
     return videoId;
   })
-  .public();
+  .internal();
 
 export const getVideoById = convex
   .query()
@@ -100,15 +110,23 @@ export const processVideoUrl = convex
       type: "image/jpeg",
     });
 
-    const videoDocId = await ctx.runMutation(api.videos.createVideo, {
-      url: `https://youtu.be/${videoId}`,
-      videoId: videoId,
-      title,
-      thumbnailKey,
-      originalThumbnailUrl,
-      processedThumbnailUrl: getDecoratedThumbnailUrl(thumbnailKey),
-      initialThumbnailHash,
-    });
+    let videoDocId: Id<"videos">;
+    try {
+      videoDocId = await ctx.runMutation(internalApi.videos.createVideo, {
+        url: `https://youtu.be/${videoId}`,
+        videoId: videoId,
+        title,
+        thumbnailKey,
+        originalThumbnailUrl,
+        processedThumbnailUrl: getDecoratedThumbnailUrl(thumbnailKey),
+        initialThumbnailHash,
+      });
+    } catch (error) {
+      // Don't leave an orphaned thumbnail in R2 if the insert was rejected
+      // (e.g. another request added the same video first).
+      await r2.deleteObject(ctx, thumbnailKey);
+      throw error;
+    }
 
     await ctx.runMutation(internalApi.thumbnailMonitor.scheduleInitialCheck, {
       videoId: videoDocId,
