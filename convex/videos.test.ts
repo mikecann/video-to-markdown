@@ -150,6 +150,102 @@ describe("videos module business logic", () => {
     });
   });
 
+  describe("getVideos", () => {
+    const seedVideos = async (t: ReturnType<typeof convexTest>, n: number) => {
+      await t.run(async (ctx) => {
+        for (let i = 0; i < n; i++) {
+          await ctx.db.insert("videos", {
+            url: `https://youtu.be/video${i}`,
+            videoId: `video${i}`,
+            title: `Video ${i}`,
+            originalThumbnailUrl: `https://img.youtube.com/vi/video${i}/maxresdefault.jpg`,
+            processedThumbnailUrl: `https://thumbs.video-to-markdown.com/video${i}.jpg`,
+          });
+        }
+      });
+    };
+
+    it("should return pages newest first with the total count", async () => {
+      const t = convexTest(schema, modules);
+      await seedVideos(t, 25);
+      await t.mutation(internal.videos.recountVideos, {});
+
+      const first = await t.query(api.videos.getVideos, { page: 0 });
+      expect(first.totalCount).toBe(25);
+      expect(first.videos).toHaveLength(21);
+      expect(first.videos[0].videoId).toBe("video24");
+
+      const second = await t.query(api.videos.getVideos, { page: 1 });
+      expect(second.totalCount).toBe(25);
+      expect(second.videos.map((v) => v.videoId)).toEqual([
+        "video3",
+        "video2",
+        "video1",
+        "video0",
+      ]);
+
+      const beyond = await t.query(api.videos.getVideos, { page: 5 });
+      expect(beyond).toEqual({ videos: [], totalCount: 25 });
+    });
+
+    it("should count the table when there is no stats row yet", async () => {
+      const t = convexTest(schema, modules);
+      await seedVideos(t, 3);
+
+      const result = await t.query(api.videos.getVideos, {});
+      expect(result.totalCount).toBe(3);
+      expect(result.videos).toHaveLength(3);
+    });
+
+    it("should clamp page and perPage", async () => {
+      const t = convexTest(schema, modules);
+      await seedVideos(t, 150);
+      await t.mutation(internal.videos.recountVideos, {});
+
+      const big = await t.query(api.videos.getVideos, { perPage: 10_000 });
+      expect(big.videos).toHaveLength(100);
+
+      const negative = await t.query(api.videos.getVideos, { page: -3 });
+      expect(negative.videos[0].videoId).toBe("video149");
+    });
+
+    it("should keep the count current as videos are added", async () => {
+      const t = convexTest(schema, modules);
+      await seedVideos(t, 2);
+      await t.mutation(internal.videos.recountVideos, {});
+
+      await t.mutation(internal.videos.createVideo, {
+        url: "https://youtu.be/dQw4w9WgXcQ",
+        videoId: "dQw4w9WgXcQ",
+        title: "Test Video",
+        originalThumbnailUrl:
+          "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        processedThumbnailUrl:
+          "https://thumbs.video-to-markdown.com/test-key.jpg",
+      });
+
+      const result = await t.query(api.videos.getVideos, {});
+      expect(result.totalCount).toBe(3);
+      expect(result.videos[0].videoId).toBe("dQw4w9WgXcQ");
+    });
+
+    it("should correct a drifted count when recounted", async () => {
+      const t = convexTest(schema, modules);
+      await seedVideos(t, 4);
+      await t.mutation(internal.videos.recountVideos, {});
+
+      // Simulate a row deleted from the dashboard, which skips the counter.
+      await t.run(async (ctx) => {
+        const oldest = await ctx.db.query("videos").first();
+        await ctx.db.delete(oldest!._id);
+      });
+      expect((await t.query(api.videos.getVideos, {})).totalCount).toBe(4);
+
+      await t.mutation(internal.videos.recountVideos, {});
+      expect((await t.query(api.videos.getVideos, {})).totalCount).toBe(3);
+    });
+  });
+
   describe("processVideoUrl when another request adds the same video first", () => {
     const videoId = "dQw4w9WgXcQ";
     const uploadedKey = "abcd1234.jpg";

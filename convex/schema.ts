@@ -16,4 +16,10 @@ export default defineSchema({
     nextCheckAt: v.optional(v.number()), // Timestamp when the next thumbnail check is scheduled to run
     lastCheckedAt: v.optional(v.number()), // Timestamp of last thumbnail check
   }).index("by_videoId", ["videoId"]),
+  // Single row holding the number of videos, so getVideos can show page
+  // numbers without reading the whole table. createVideo keeps it current
+  // and recountVideos (daily cron) corrects any drift.
+  videoStats: defineTable({
+    count: v.number(),
+  }),
 });

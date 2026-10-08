@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { R2 } from "@convex-dev/r2";
 import { components, internal as internalApi } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { convex } from "./fluent";
 import {
   extractVideoId,
@@ -13,6 +14,16 @@ import {
 } from "./utils";
 
 export const r2 = new R2(components.r2);
+
+const DEFAULT_PER_PAGE = 21;
+const MAX_PER_PAGE = 100;
+
+async function getVideoCount(ctx: QueryCtx): Promise<number> {
+  const stats = await ctx.db.query("videoStats").first();
+  if (stats) return stats.count;
+  // Until recountVideos has run once there's no stats row, so count directly.
+  return (await ctx.db.query("videos").collect()).length;
+}
 
 export const createVideo = convex
   .mutation()
@@ -49,6 +60,10 @@ export const createVideo = convex
       nextCheckAt: undefined,
     });
 
+    // If there's no stats row yet, recountVideos will create it.
+    const stats = await ctx.db.query("videoStats").first();
+    if (stats) await ctx.db.patch(stats._id, { count: stats.count + 1 });
+
     return videoId;
   })
   .internal();
@@ -78,14 +93,39 @@ export const getVideos = convex
     page: v.optional(v.number()),
     perPage: v.optional(v.number()),
   })
-  .handler(async (ctx, { page = 0, perPage = 21 }) => {
-    const allVideos = await ctx.db.query("videos").order("desc").collect();
-    const totalCount = allVideos.length;
-    const start = page * perPage;
-    const videos = allVideos.slice(start, start + perPage);
-    return { videos, totalCount };
+  .handler(async (ctx, { page = 0, perPage = DEFAULT_PER_PAGE }) => {
+    const pageSize = Number.isFinite(perPage)
+      ? Math.min(Math.max(Math.floor(perPage), 1), MAX_PER_PAGE)
+      : DEFAULT_PER_PAGE;
+    const start = Number.isFinite(page)
+      ? Math.max(Math.floor(page), 0) * pageSize
+      : 0;
+
+    const totalCount = await getVideoCount(ctx);
+    if (start >= totalCount) return { videos: [], totalCount };
+
+    // Convex has no offset, so read only the newest rows up to the end of this
+    // page rather than the whole table.
+    const newest = await ctx.db
+      .query("videos")
+      .order("desc")
+      .take(start + pageSize);
+    return { videos: newest.slice(start), totalCount };
   })
   .public();
+
+// Recomputes videoStats.count from the table, creating the row if needed.
+// Runs daily from crons.ts so the count recovers from rows deleted in the
+// dashboard; run it by hand after a deploy or a manual cleanup.
+export const recountVideos = convex
+  .mutation()
+  .handler(async (ctx) => {
+    const count = (await ctx.db.query("videos").collect()).length;
+    const stats = await ctx.db.query("videoStats").first();
+    if (stats) await ctx.db.patch(stats._id, { count });
+    else await ctx.db.insert("videoStats", { count });
+  })
+  .internal();
 
 export const processVideoUrl = convex
   .action()
