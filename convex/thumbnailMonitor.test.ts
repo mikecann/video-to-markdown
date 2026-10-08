@@ -1,5 +1,15 @@
+/// <reference types="vite/client" />
+import { convexTest } from "convex-test";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { checkIfThumbnailChanged, daysFromNowInMilliseconds } from "./utils";
+import { internal } from "./_generated/api";
+import schema from "./schema";
+import {
+  checkIfThumbnailChanged,
+  daysFromNowInMilliseconds,
+  hashThumbnail,
+} from "./utils";
+
+const modules = import.meta.glob("./**/!(*.*.*)*.*s");
 
 describe("thumbnailMonitor core logic", () => {
   beforeEach(() => {
@@ -185,6 +195,72 @@ describe("thumbnailMonitor core logic", () => {
       // On error, should keep same interval
       expect(result.error).toBeTruthy();
       expect(result.thumbnailChanged).toBe(false);
+    });
+  });
+
+  describe("checkThumbnailChanges", () => {
+    // The thumbnail YouTube serves in these tests, unchanged since last check.
+    const thumbnail = new Uint8Array([1, 2, 3, 4]).buffer;
+
+    async function processedRow() {
+      return {
+        url: "https://youtu.be/dQw4w9WgXcQ",
+        videoId: "dQw4w9WgXcQ",
+        title: "Test Video",
+        thumbnailKey: "1a2b3c4d.jpg",
+        originalThumbnailUrl:
+          "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        processedThumbnailUrl:
+          "https://thumbs.video-to-markdown.com/1a2b3c4d.jpg",
+        lastThumbnailHash: await hashThumbnail(thumbnail),
+        checkIntervalDays: 1,
+      };
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    async function runCheck(video: Awaited<ReturnType<typeof processedRow>>) {
+      const t = convexTest(schema, modules);
+      const fetch = vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => thumbnail,
+      }));
+      vi.stubGlobal("fetch", fetch);
+      const videoId = await t.run((ctx) => ctx.db.insert("videos", video));
+      await t.action(internal.thumbnailMonitor.checkThumbnailChanges, {
+        videoId,
+      });
+      const after = await t.run((ctx) => ctx.db.get(videoId));
+      return { fetch, after };
+    }
+
+    it("should check the YouTube thumbnail of a processed video", async () => {
+      const row = await processedRow();
+      const { fetch, after } = await runCheck(row);
+
+      expect(fetch).toHaveBeenCalledWith(row.originalThumbnailUrl);
+      expect(after?.checkIntervalDays).toBe(2);
+      expect(after?.scheduledFunctionId).toBeDefined();
+    });
+
+    it("should skip and back off for a row that doesn't match processVideoUrl's shape", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const row = await processedRow();
+      const { fetch, after } = await runCheck({
+        ...row,
+        originalThumbnailUrl: "https://example.com/image.jpg",
+      });
+
+      expect(fetch).not.toHaveBeenCalled();
+      expect(after?.checkIntervalDays).toBe(2);
+      expect(after?.lastThumbnailHash).toBe(row.lastThumbnailHash);
+      expect(after?.scheduledFunctionId).toBeDefined();
     });
   });
 });
