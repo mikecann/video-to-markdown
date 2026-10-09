@@ -150,6 +150,53 @@ describe("videos module business logic", () => {
     });
   });
 
+  describe("when old duplicate rows share a videoId", () => {
+    const videoId = "dQw4w9WgXcQ";
+
+    async function seedDuplicates(t: ReturnType<typeof convexTest>) {
+      return await t.run(async (ctx) => {
+        const ids: Id<"videos">[] = [];
+        for (const key of ["first111.jpg", "second22.jpg"]) {
+          ids.push(
+            await ctx.db.insert("videos", {
+              url: `https://youtu.be/${videoId}`,
+              videoId,
+              title: "Test Video",
+              thumbnailKey: key,
+              originalThumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+              processedThumbnailUrl: `https://thumbs.video-to-markdown.com/${key}`,
+            }),
+          );
+        }
+        return ids;
+      });
+    }
+
+    it("getVideoByYoutubeId should return the oldest row", async () => {
+      const t = convexTest(schema, modules);
+      const [oldest] = await seedDuplicates(t);
+
+      const video = await t.query(internal.videos.getVideoByYoutubeId, {
+        videoId,
+      });
+      expect(video?._id).toBe(oldest);
+    });
+
+    it("processVideoUrl should report the oldest row as the existing video", async () => {
+      const t = convexTest(schema, modules);
+      const [oldest] = await seedDuplicates(t);
+
+      const error = await t
+        .action(api.videos.processVideoUrl, {
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+        })
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ConvexError);
+      expect((error as Error).message).toContain("DUPLICATE_VIDEO");
+      expect((error as Error).message).toContain(oldest);
+    });
+  });
+
   describe("getVideos", () => {
     const seedVideos = async (t: ReturnType<typeof convexTest>, n: number) => {
       await t.run(async (ctx) => {
