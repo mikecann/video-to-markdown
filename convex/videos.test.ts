@@ -156,7 +156,7 @@ describe("videos module business logic", () => {
 
     // Stub YouTube, and make the R2 upload stand in for the slow part of the
     // action: while it runs, another request inserts the same video.
-    async function setUpRace() {
+    async function setUpRace(otherThumbnailKey = "other123.jpg") {
       const t = convexTest(schema, modules);
       const jpeg = await new Jimp({
         width: 4,
@@ -182,10 +182,9 @@ describe("videos module business logic", () => {
           url: `https://youtu.be/${videoId}`,
           videoId,
           title: "Test Video",
-          thumbnailKey: "other123.jpg",
+          thumbnailKey: otherThumbnailKey,
           originalThumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-          processedThumbnailUrl:
-            "https://thumbs.video-to-markdown.com/other123.jpg",
+          processedThumbnailUrl: `https://thumbs.video-to-markdown.com/${otherThumbnailKey}`,
         });
         return uploadedKey;
       });
@@ -218,7 +217,9 @@ describe("videos module business logic", () => {
     it("should still report the existing video if the cleanup fails", async () => {
       const { t, deleteObject, getOtherId } = await setUpRace();
       deleteObject.mockRejectedValue(new Error("R2 unavailable"));
-      vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
 
       const error = await t
         .action(api.videos.processVideoUrl, {
@@ -228,6 +229,22 @@ describe("videos module business logic", () => {
 
       expect((error as Error).message).toContain("DUPLICATE_VIDEO");
       expect((error as Error).message).toContain(getOtherId());
+      expect(deleteObject).toHaveBeenCalledWith(expect.anything(), uploadedKey);
+      expect(consoleError).toHaveBeenCalled();
+    });
+
+    it("should keep the upload if the video's row is using it", async () => {
+      // Stands in for an insert that committed even though runMutation threw.
+      const { t, deleteObject } = await setUpRace(uploadedKey);
+      deleteObject.mockResolvedValue(undefined);
+
+      await t
+        .action(api.videos.processVideoUrl, {
+          url: `https://youtu.be/${videoId}`,
+        })
+        .catch(() => {});
+
+      expect(deleteObject).not.toHaveBeenCalled();
     });
   });
 

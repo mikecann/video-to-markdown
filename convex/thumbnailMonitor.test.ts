@@ -223,6 +223,7 @@ describe("thumbnailMonitor core logic", () => {
 
     afterEach(() => {
       vi.useRealTimers();
+      vi.restoreAllMocks();
     });
 
     async function runCheck(video: Awaited<ReturnType<typeof processedRow>>) {

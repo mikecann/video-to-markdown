@@ -123,11 +123,16 @@ export const processVideoUrl = convex
       });
     } catch (error) {
       // Don't leave an orphaned thumbnail in R2 if the insert was rejected
-      // (e.g. another request added the same video first). A failed cleanup
-      // mustn't hide the original error, which callers use to show the
-      // existing video.
+      // (e.g. another request added the same video first). An error here
+      // doesn't prove the insert didn't commit, so only delete the upload if
+      // the row for this video isn't using it. A failed cleanup mustn't hide
+      // the original error, which callers use to show the existing video.
       try {
-        await r2.deleteObject(ctx, thumbnailKey);
+        const row = await ctx.runQuery(internalApi.videos.getVideoByYoutubeId, {
+          videoId,
+        });
+        if (row?.thumbnailKey !== thumbnailKey)
+          await r2.deleteObject(ctx, thumbnailKey);
       } catch (cleanupError) {
         console.error(
           `Failed to delete orphaned thumbnail ${thumbnailKey}:`,
