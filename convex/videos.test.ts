@@ -1,5 +1,15 @@
+/// <reference types="vite/client" />
+import { convexTest } from "convex-test";
+import { ConvexError } from "convex/values";
+import { Jimp } from "jimp";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
 import { extractVideoId, getYoutubeVideoTitle } from "./utils";
+import { r2 } from "./videos";
+
+const modules = import.meta.glob("./**/!(*.*.*)*.*s");
 
 describe("videos module business logic", () => {
   beforeEach(() => {
@@ -48,11 +58,14 @@ describe("videos module business logic", () => {
     });
 
     it("should handle YouTube API failures gracefully", async () => {
-      // Mock API failure
+      // Mock API failure from YouTube oEmbed and the noembed.com fallback
       vi.stubGlobal(
         "fetch",
         vi.fn(async (url: string) => {
-          if (url.includes("youtube.com/oembed")) {
+          if (
+            url.includes("youtube.com/oembed") ||
+            url.includes("noembed.com")
+          ) {
             return { ok: false, status: 404, statusText: "Not Found" };
           }
           return { ok: true, arrayBuffer: async () => new ArrayBuffer(1024) };
@@ -85,36 +98,153 @@ describe("videos module business logic", () => {
     });
   });
 
-  describe("createVideo business logic", () => {
-    it("should validate required fields for video creation", () => {
-      // Test that we have the right field structure
-      const requiredFields = {
-        url: "https://youtu.be/dQw4w9WgXcQ",
-        videoId: "dQw4w9WgXcQ",
-        title: "Test Video",
-        originalThumbnailUrl:
-          "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
-        processedThumbnailUrl:
-          "https://thumbs.video-to-markdown.com/test-key.jpg",
-      };
+  describe("createVideo", () => {
+    const videoArgs = {
+      url: "https://youtu.be/dQw4w9WgXcQ",
+      videoId: "dQw4w9WgXcQ",
+      title: "Test Video",
+      thumbnailKey: "test-key.jpg",
+      originalThumbnailUrl:
+        "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+      processedThumbnailUrl:
+        "https://thumbs.video-to-markdown.com/test-key.jpg",
+      initialThumbnailHash: "hash-123",
+    };
 
-      // Verify all required fields are present
-      expect(requiredFields.url).toBeTruthy();
-      expect(requiredFields.videoId).toBeTruthy();
-      expect(requiredFields.title).toBeTruthy();
-      expect(requiredFields.originalThumbnailUrl).toBeTruthy();
-      expect(requiredFields.processedThumbnailUrl).toBeTruthy();
+    it("should insert a video with default monitoring values", async () => {
+      const t = convexTest(schema, modules);
+      const id = await t.mutation(internal.videos.createVideo, videoArgs);
+
+      const video = await t.run((ctx) => ctx.db.get(id));
+      expect(video).toMatchObject({
+        videoId: "dQw4w9WgXcQ",
+        url: "https://youtu.be/dQw4w9WgXcQ",
+        lastThumbnailHash: "hash-123",
+        checkIntervalDays: 1,
+      });
     });
 
-    it("should set correct default values for monitoring", () => {
-      // Test default monitoring field values
-      const defaultMonitoringFields = {
-        checkIntervalDays: 1,
-        lastCheckedAt: Date.now(),
-      };
+    it("should reject a duplicate videoId", async () => {
+      const t = convexTest(schema, modules);
+      const id = await t.mutation(internal.videos.createVideo, videoArgs);
 
-      expect(defaultMonitoringFields.checkIntervalDays).toBe(1);
-      expect(defaultMonitoringFields.lastCheckedAt).toBeTypeOf("number");
+      const error = await t
+        .mutation(internal.videos.createVideo, {
+          ...videoArgs,
+          title: "Someone else's title",
+        })
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ConvexError);
+      expect((error as Error).message).toContain("DUPLICATE_VIDEO");
+      expect((error as Error).message).toContain(id);
+
+      const videos = await t.run((ctx) => ctx.db.query("videos").collect());
+      expect(videos).toHaveLength(1);
+      expect(videos[0].title).toBe("Test Video");
+    });
+
+    it("should not be exposed on the public API", () => {
+      // Type-level guard: `tsc` fails if createVideo is made public again.
+      // @ts-expect-error createVideo is internal-only
+      expect(api.videos.createVideo).toBeDefined();
+    });
+  });
+
+  describe("processVideoUrl when another request adds the same video first", () => {
+    const videoId = "dQw4w9WgXcQ";
+    const uploadedKey = "abcd1234.jpg";
+
+    // Stub YouTube, and make the R2 upload stand in for the slow part of the
+    // action: while it runs, another request inserts the same video.
+    async function setUpRace(otherThumbnailKey = "other123.jpg") {
+      const t = convexTest(schema, modules);
+      const jpeg = await new Jimp({
+        width: 4,
+        height: 4,
+        color: 0xff0000ff,
+      }).getBuffer("image/jpeg");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          if (url.includes("youtube.com/oembed")) {
+            return { ok: true, json: async () => ({ title: "Test Video" }) };
+          }
+          return {
+            ok: true,
+            arrayBuffer: async () => new Uint8Array(jpeg).buffer,
+          };
+        }),
+      );
+
+      let otherId: Id<"videos"> | undefined;
+      vi.spyOn(r2, "store").mockImplementation(async () => {
+        otherId = await t.mutation(internal.videos.createVideo, {
+          url: `https://youtu.be/${videoId}`,
+          videoId,
+          title: "Test Video",
+          thumbnailKey: otherThumbnailKey,
+          originalThumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          processedThumbnailUrl: `https://thumbs.video-to-markdown.com/${otherThumbnailKey}`,
+        });
+        return uploadedKey;
+      });
+      const deleteObject = vi.spyOn(r2, "deleteObject");
+
+      return { t, deleteObject, getOtherId: () => otherId };
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should delete its own upload and report the existing video", async () => {
+      const { t, deleteObject, getOtherId } = await setUpRace();
+      deleteObject.mockResolvedValue(undefined);
+
+      const error = await t
+        .action(api.videos.processVideoUrl, {
+          url: `https://youtu.be/${videoId}`,
+        })
+        .catch((e: unknown) => e);
+
+      expect((error as Error).message).toContain("DUPLICATE_VIDEO");
+      expect((error as Error).message).toContain(getOtherId());
+      expect(deleteObject).toHaveBeenCalledWith(expect.anything(), uploadedKey);
+      const videos = await t.run((ctx) => ctx.db.query("videos").collect());
+      expect(videos).toHaveLength(1);
+    });
+
+    it("should still report the existing video if the cleanup fails", async () => {
+      const { t, deleteObject, getOtherId } = await setUpRace();
+      deleteObject.mockRejectedValue(new Error("R2 unavailable"));
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const error = await t
+        .action(api.videos.processVideoUrl, {
+          url: `https://youtu.be/${videoId}`,
+        })
+        .catch((e: unknown) => e);
+
+      expect((error as Error).message).toContain("DUPLICATE_VIDEO");
+      expect((error as Error).message).toContain(getOtherId());
+      expect(deleteObject).toHaveBeenCalledWith(expect.anything(), uploadedKey);
+      expect(consoleError).toHaveBeenCalled();
+    });
+
+    it("should keep the upload if the video's row is using it", async () => {
+      // Stands in for an insert that committed even though runMutation threw.
+      const { t, deleteObject } = await setUpRace(uploadedKey);
+      deleteObject.mockResolvedValue(undefined);
+
+      await t
+        .action(api.videos.processVideoUrl, {
+          url: `https://youtu.be/${videoId}`,
+        })
+        .catch(() => {});
+
+      expect(deleteObject).not.toHaveBeenCalled();
     });
   });
 

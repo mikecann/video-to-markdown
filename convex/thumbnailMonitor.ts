@@ -7,6 +7,7 @@ import {
   checkIfThumbnailChanged,
   daysFromNowInMilliseconds,
   calculateNextInterval,
+  hasProcessedThumbnailShape,
 } from "./utils";
 
 export const getVideoForCheck = convex
@@ -28,6 +29,23 @@ export const checkThumbnailChanges = convex
 
     if (!video) {
       console.warn(`Thumbnail check: video ${videoId} not found, skipping`);
+      return;
+    }
+
+    if (!hasProcessedThumbnailShape(video)) {
+      console.warn(
+        `Thumbnail check: video ${videoId} doesn't look like one processVideoUrl created, skipping`,
+      );
+      // Back off as if unchanged, so the repair cron doesn't retry it daily.
+      await ctx.runMutation(
+        internal.thumbnailMonitor.updateVideoAndScheduleNext,
+        {
+          videoId,
+          newHash: video.lastThumbnailHash || "",
+          thumbnailChanged: false,
+          error: false,
+        },
+      );
       return;
     }
 

@@ -9,6 +9,7 @@ import {
   createHash,
   checkIfThumbnailChanged,
   calculateNextInterval,
+  hasProcessedThumbnailShape,
 } from "./utils";
 
 describe("utils", () => {
@@ -489,6 +490,70 @@ describe("utils", () => {
       // Error takes precedence over thumbnail change
       expect(calculateNextInterval(8, true, true)).toBe(8);
       expect(calculateNextInterval(32, true, true)).toBe(32);
+    });
+  });
+
+  describe("hasProcessedThumbnailShape", () => {
+    const row = {
+      videoId: "dQw4w9WgXcQ",
+      thumbnailKey: "1a2b3c4d.jpg",
+      originalThumbnailUrl:
+        "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+      processedThumbnailUrl:
+        "https://thumbs.video-to-markdown.com/1a2b3c4d.jpg",
+    };
+
+    it("should accept rows processVideoUrl writes", () => {
+      expect(hasProcessedThumbnailShape(row)).toBe(true);
+      expect(
+        hasProcessedThumbnailShape({
+          ...row,
+          originalThumbnailUrl:
+            "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+        }),
+      ).toBe(true);
+    });
+
+    it("should reject thumbnails from other hosts or other videos", () => {
+      for (const originalThumbnailUrl of [
+        "https://example.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        "http://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        "https://img.youtube.com/vi/aaaaaaaaaaa/maxresdefault.jpg",
+        "https://img.youtube.com/vi/dQw4w9WgXcQ/../aaaaaaaaaaa/maxresdefault.jpg",
+        "https://img.youtube.com/vi/dQw4w9WgXcQ/other.jpg",
+      ]) {
+        expect(
+          hasProcessedThumbnailShape({ ...row, originalThumbnailUrl }),
+        ).toBe(false);
+      }
+    });
+
+    it("should reject unexpected keys, processed URLs and video IDs", () => {
+      expect(
+        hasProcessedThumbnailShape({ ...row, thumbnailKey: undefined }),
+      ).toBe(false);
+      expect(
+        hasProcessedThumbnailShape({
+          ...row,
+          thumbnailKey: "index.html",
+          processedThumbnailUrl:
+            "https://thumbs.video-to-markdown.com/index.html",
+        }),
+      ).toBe(false);
+      expect(
+        hasProcessedThumbnailShape({
+          ...row,
+          processedThumbnailUrl: "https://example.com/1a2b3c4d.jpg",
+        }),
+      ).toBe(false);
+      expect(
+        hasProcessedThumbnailShape({
+          ...row,
+          videoId: "dQw4w9WgXcQ/x",
+          originalThumbnailUrl:
+            "https://img.youtube.com/vi/dQw4w9WgXcQ/x/maxresdefault.jpg",
+        }),
+      ).toBe(false);
     });
   });
 });

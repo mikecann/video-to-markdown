@@ -83,6 +83,31 @@ export async function fetchYoutubeThumbnailWithFallback(
 export const getDecoratedThumbnailUrl = (thumbnailKey: string) =>
   `https://thumbs.video-to-markdown.com/${thumbnailKey}`;
 
+const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+const THUMBNAIL_KEY = /^[0-9a-f]{8}\.jpg$/;
+
+// processVideoUrl only writes rows of this shape. Rows written through the
+// old public createVideo could hold anything, so the thumbnail monitor only
+// fetches and re-hosts thumbnails for rows that match it.
+export function hasProcessedThumbnailShape(video: {
+  videoId: string;
+  thumbnailKey?: string;
+  originalThumbnailUrl: string;
+  processedThumbnailUrl: string;
+}): boolean {
+  const { videoId, thumbnailKey } = video;
+  if (!YOUTUBE_VIDEO_ID.test(videoId)) return false;
+  if (thumbnailKey === undefined || !THUMBNAIL_KEY.test(thumbnailKey))
+    return false;
+  if (video.processedThumbnailUrl !== getDecoratedThumbnailUrl(thumbnailKey))
+    return false;
+  return YOUTUBE_THUMBNAIL_QUALITIES.some(
+    (quality) =>
+      video.originalThumbnailUrl ===
+      `https://img.youtube.com/vi/${videoId}/${quality}.jpg`,
+  );
+}
+
 export const getYoutubeVideoTitle = async (
   videoId: string,
 ): Promise<string> => {
