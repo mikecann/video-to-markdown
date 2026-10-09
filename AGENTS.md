@@ -63,7 +63,7 @@ export const myAction = convex.action().input({...}).handler(fn).public();
 - `src/router.ts` defines routes using type-route
 - Currently a single `home` route with an optional `page` query param
 - Pagination is URL-driven: `/?page=0`, `/?page=1`, etc.
-- `getVideos` only reads the newest rows up to the end of the requested page. The total for the page numbers comes from the single `videoStats` row, which `createVideo` increments and a daily cron (`recountVideos`, 3:30 UTC) recounts. Run `recountVideos` by hand after deleting rows in the dashboard.
+- `getVideos` only reads the newest rows up to the end of the requested page. The total for the page numbers comes from the single `videoStats` row, which `createVideo` increments and a daily cron (`recountVideos`, 3:30 UTC) recounts. Run `recountVideos` once after the first deploy to create the row (until then `getVideos` counts the whole table), and by hand after deleting rows in the dashboard.
 
 ## Deployment
 
