@@ -9,4 +9,10 @@ crons.daily(
   internal.thumbnailMonitor.repairStaleSchedules,
 );
 
+crons.daily(
+  "recount videos",
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.videos.recountVideos,
+);
+
 export default crons;

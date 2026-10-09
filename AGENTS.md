@@ -55,13 +55,15 @@ export const myAction = convex.action().input({...}).handler(fn).public();
 ### Thumbnail Monitoring
 - When a video is added, an initial thumbnail check is scheduled for 24h later
 - Checks use exponential backoff: 1d → 2d → 4d → 8d → 16d → 32d
-- If a thumbnail changes, it resets to 1d interval
+- If a thumbnail changes, it resets to 1d interval and the new image overwrites the R2 object under the same key, so pasted URLs keep working
+- Only rows shaped like `processVideoUrl`'s output, whose `thumbnailKey` no other row shares, are refreshed. Other rows are skipped and backed off (see `hasProcessedThumbnailShape` and `getVideoForCheck`)
 - A daily cron (`convex/crons.ts`) runs `repairStaleSchedules` at 3:00 UTC as a safety net to reschedule any orphaned checks
 
 ### Routing
 - `src/router.ts` defines routes using type-route
 - Currently a single `home` route with an optional `page` query param
 - Pagination is URL-driven: `/?page=0`, `/?page=1`, etc.
+- `getVideos` only reads the newest rows up to the end of the requested page. The total for the page numbers comes from the single `videoStats` row, which `createVideo` increments and a daily cron (`recountVideos`, 3:30 UTC) recounts. Run `recountVideos` once after the first deploy to create the row (until then `getVideos` counts the whole table), and by hand after deleting rows in the dashboard.
 
 ## Deployment
 
@@ -86,7 +88,7 @@ convex/           # Convex backend
   fluent.ts       # fluent-convex builder instance
   videos.ts       # Video CRUD + processing action
   thumbnailMonitor.ts  # Scheduled thumbnail checking
-  crons.ts        # Daily repair cron
+  crons.ts        # Daily crons (schedule repair, video recount)
   schema.ts       # Database schema
   utils.ts        # Shared utilities (oEmbed, image processing, hashing)
 src/              # React frontend

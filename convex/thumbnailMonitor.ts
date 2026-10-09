@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
+import type { ActionCtx } from "./_generated/server";
 import { convex } from "./fluent";
 import { r2 } from "./videos";
 import {
@@ -10,11 +11,41 @@ import {
   hasProcessedThumbnailShape,
 } from "./utils";
 
+// Replace a stored thumbnail in place, keeping its key and so its public URL
+// (which people have pasted into READMEs). r2.store() throws if the key
+// already has metadata, so clear that first. r2.deleteObject() isn't safe
+// here: it deletes the R2 object in a background job that can run after the
+// new upload and remove it.
+export async function overwriteThumbnail(
+  ctx: ActionCtx,
+  key: string,
+  image: Uint8Array,
+) {
+  await ctx.runMutation(components.r2.lib.deleteMetadata, {
+    key,
+    bucket: r2.config.bucket,
+  });
+  await r2.store(ctx, image, { key, type: "image/jpeg" });
+}
+
 export const getVideoForCheck = convex
   .query()
   .input({ videoId: v.id("videos") })
   .handler(async (ctx, { videoId }) => {
-    return await ctx.db.get(videoId);
+    const video = await ctx.db.get(videoId);
+    if (!video) return null;
+    // A refresh overwrites the image at the row's key, so only the one row
+    // with that key may do it. Rows from the old public createVideo could
+    // copy a real video's key.
+    const rowsWithKey = video.thumbnailKey
+      ? await ctx.db
+          .query("videos")
+          .withIndex("by_thumbnailKey", (q) =>
+            q.eq("thumbnailKey", video.thumbnailKey),
+          )
+          .take(2)
+      : [];
+    return { video, ownsThumbnailKey: rowsWithKey.length === 1 };
   })
   .internal();
 
@@ -22,20 +53,24 @@ export const checkThumbnailChanges = convex
   .action()
   .input({ videoId: v.id("videos") })
   .handler(async (ctx, { videoId }) => {
-    const video = await ctx.runQuery(
+    const check = await ctx.runQuery(
       internal.thumbnailMonitor.getVideoForCheck,
       { videoId },
     );
 
-    if (!video) {
+    if (!check) {
       console.warn(`Thumbnail check: video ${videoId} not found, skipping`);
       return;
     }
 
-    if (!hasProcessedThumbnailShape(video)) {
-      console.warn(
-        `Thumbnail check: video ${videoId} doesn't look like one processVideoUrl created, skipping`,
-      );
+    const { video, ownsThumbnailKey } = check;
+    const skipReason = !hasProcessedThumbnailShape(video)
+      ? "doesn't look like one processVideoUrl created"
+      : !ownsThumbnailKey
+        ? `shares thumbnail key ${video.thumbnailKey} with another video`
+        : null;
+    if (skipReason) {
+      console.warn(`Thumbnail check: video ${videoId} ${skipReason}, skipping`);
       // Back off as if unchanged, so the repair cron doesn't retry it daily.
       await ctx.runMutation(
         internal.thumbnailMonitor.updateVideoAndScheduleNext,
@@ -76,10 +111,7 @@ export const checkThumbnailChanges = convex
       if (thumbnailChanged && video.thumbnailKey && arrayBuffer) {
         const processedImageBuffer =
           await addPlayIconToThumbnail(arrayBuffer);
-        await r2.store(ctx, processedImageBuffer, {
-          key: video.thumbnailKey,
-          type: "image/jpeg",
-        });
+        await overwriteThumbnail(ctx, video.thumbnailKey, processedImageBuffer);
       }
 
       await ctx.runMutation(
