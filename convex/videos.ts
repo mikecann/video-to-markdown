@@ -80,10 +80,13 @@ export const getVideoByYoutubeId = convex
   .query()
   .input({ videoId: v.string() })
   .handler(async (ctx, { videoId }) => {
+    // Not .unique(): older rows can share a videoId (from before createVideo
+    // rejected duplicates), and .unique() throws on those. Indexes end in
+    // _creationTime, so .first() is the oldest row.
     return await ctx.db
       .query("videos")
       .withIndex("by_videoId", (q) => q.eq("videoId", videoId))
-      .unique();
+      .first();
   })
   .internal();
 
