@@ -10,7 +10,7 @@
         "@mantine/hooks": "^8.3.15",
         "@mantine/notifications": "^8.3.15",
         "convex": "^1.49.0",
-        "fluent-convex": "^0.12.3",
+        "fluent-convex": "^0.15.0",
         "jimp": "^1.6.0",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
@@ -539,7 +539,7 @@
 
     "flatted": ["flatted@3.3.3", "", {}, "sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg=="],
 
-    "fluent-convex": ["fluent-convex@0.12.3", "", { "peerDependencies": { "convex": "^1.31.0", "convex-helpers": ">=0.1.0", "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["convex-helpers", "zod"] }, "sha512-z3mYifNVUZJu8ZpXioZMS9vAU/dcUefVwD1hB1Z6aG1cT3hfwptB5PEXOItFRR2dMBrYJ00Hty9p2OI3PixX/A=="],
+    "fluent-convex": ["fluent-convex@0.15.0", "", { "peerDependencies": { "convex": "^1.46.0", "convex-helpers": "^0.1.127", "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["convex-helpers", "zod"] }, "sha512-WLgFjo3wUzIFuisnnvepegCOca+k5wRptpd29gZ/ZaKngLfPv4W0O3hIhloUntgThP2mgodF5QEPAtJhxpeHqQ=="],
 
     "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 
