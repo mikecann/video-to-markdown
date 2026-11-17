@@ -34,7 +34,7 @@
     "@mantine/notifications": "^8.3.15",
     "convex": "^1.49.0",
     "fluent-convex": "^0.15.0",
-    "jimp": "^1.6.0",
+    "jimp": "1.6.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "type-route": "^1.1.0"
