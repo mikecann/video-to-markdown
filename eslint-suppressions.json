@@ -1,0 +1,31 @@
+{
+  "convex/crons.ts": {
+    "@convex-dev/no-top-of-hour-crons": {
+      "count": 1
+    }
+  },
+  "convex/migrations.ts": {
+    "@convex-dev/explicit-table-ids": {
+      "count": 1
+    },
+    "@convex-dev/no-collect-in-query": {
+      "count": 1
+    }
+  },
+  "convex/thumbnailMonitor.ts": {
+    "@convex-dev/explicit-table-ids": {
+      "count": 7
+    },
+    "@convex-dev/no-collect-in-query": {
+      "count": 1
+    }
+  },
+  "convex/videos.ts": {
+    "@convex-dev/explicit-table-ids": {
+      "count": 3
+    },
+    "@convex-dev/no-collect-in-query": {
+      "count": 2
+    }
+  }
+}
