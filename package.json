@@ -48,7 +48,7 @@
     "concurrently": "^9.2.1",
     "convex-test": "^0.0.41",
     "eslint": "^10",
-    "mikecann-lint": "^0.1.0",
+    "mikecann-lint": "^0.1.1",
     "prettier": "^3.8.1",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
