@@ -25,7 +25,7 @@
         "concurrently": "^9.2.1",
         "convex-test": "^0.0.41",
         "eslint": "^10",
-        "mikecann-lint": "^0.1.1",
+        "mikecann-lint": "^0.2.0",
         "prettier": "^3.8.1",
         "typescript": "~5.9.3",
         "vite": "^7.3.1",
@@ -597,7 +597,7 @@
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 
-    "mikecann-lint": ["mikecann-lint@0.1.1", "", { "dependencies": { "@convex-dev/eslint-plugin": "^5.0.1", "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1", "eslint-plugin-react-hooks": "^7.1.1", "typescript-eslint": "^8.73.0", "typescript6": "npm:typescript@~6.0.3" }, "peerDependencies": { "eslint": "^9.24.0 || ^10.0.0" }, "bin": { "mikecann-lint": "bin/mikecann-lint.js" } }, "sha512-QFf/ucrBJp7/cNGcq5vyQZUzVFu+HrEKZQ+AZn+S6Qw4E+SZrWfz4SVwfC/l+xGFwQGVYdiDJfWE85hx47pxCA=="],
+    "mikecann-lint": ["mikecann-lint@0.2.0", "", { "dependencies": { "@convex-dev/eslint-plugin": "^5.0.1", "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1", "eslint-plugin-react-hooks": "^7.1.1", "typescript-eslint": "^8.73.0", "typescript6": "npm:typescript@~6.0.3" }, "peerDependencies": { "eslint": "^9.24.0 || ^10.0.0" }, "bin": { "mikecann-lint": "bin/mikecann-lint.js" } }, "sha512-ttrhQMyjU2IBwQ6/k0Lj8kXUeWh/rQCsaliwynBFYfWk6Xk44yTaiq0fwolz6Zul20VpVRDxxuLATsEH4oOiNw=="],
 
     "mime": ["mime@3.0.0", "", { "bin": { "mime": "cli.js" } }, "sha512-jSCU7/VB1loIWBZe14aEYHU/+1UMEHoaO7qxCOVJOw9GgH72VAWppxNcjU+x9a2k3GSIBXNKxXQFqRvvZ7vr3A=="],
 
